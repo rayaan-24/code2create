@@ -15,6 +15,7 @@ from app.models.announcement import Announcement, AnnouncementPriority
 from app.models.audit import AuditLog, AuditAction
 from app.models.chunk import KnowledgeChunk
 from app.models.conversation import ConversationSession, ConversationMessage
+from app.models.navigation import NavigationNode, NavigationEdge, NodeType
 
 __all__ = [
     "Base",
@@ -40,4 +41,7 @@ __all__ = [
     "KnowledgeChunk",
     "ConversationSession",
     "ConversationMessage",
+    "NavigationNode",
+    "NavigationEdge",
+    "NodeType",
 ]

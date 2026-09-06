@@ -1,15 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ChatMessage } from '@/lib/types';
 import { ProcedureCard } from './ProcedureCard';
 import { LocationCard } from './LocationCard';
 import { PersonCard } from './PersonCard';
 import { ServiceCard } from './ServiceCard';
 import { SourceCard } from './SourceCard';
+import { NavigationActionCard } from './NavigationActionCard';
+import { ExternalSourceCard } from './ExternalSourceCard';
 import { formatDate } from '@/lib/utils';
-import { Bot, User as UserIcon, Copy, Volume2, Check } from 'lucide-react';
+import { Bot, User as UserIcon, Copy, Volume2, VolumeX, Check, Globe } from 'lucide-react';
 import { GlassButton } from '../ui/GlassButton';
+import { voiceApi } from '@/lib/api/voice';
 
 export interface MessageItemProps {
   message: ChatMessage;
@@ -19,6 +22,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -26,10 +30,47 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSpeak = () => {
+  const handleSpeak = async () => {
+    if (speaking) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setSpeaking(false);
+      return;
+    }
+
     setSpeaking(true);
-    // In Phase 2: Connect to ElevenLabs TTS API
-    // Web Speech API fallback for prototype demonstration
+
+    // 1. Try ElevenLabs voice API
+    try {
+      const audioBlob = await voiceApi.synthesizeSpeech(message.content);
+      if (audioBlob) {
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        audio.onended = () => {
+          setSpeaking(false);
+          audioRef.current = null;
+        };
+        audio.onerror = () => {
+          fallbackSpeechSynthesis();
+        };
+        await audio.play();
+        return;
+      }
+    } catch {
+      // Fallback
+    }
+
+    // 2. Fallback to Web Speech API
+    fallbackSpeechSynthesis();
+  };
+
+  const fallbackSpeechSynthesis = () => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(message.content);
@@ -60,6 +101,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
           <span className="font-semibold text-slate-300">{isUser ? 'You' : 'NEXORA'}</span>
           <span>•</span>
           <span>{formatDate(message.timestamp)}</span>
+          {message.isExternal && (
+            <span className="text-[10px] text-indigo-400 font-semibold flex items-center gap-1 ml-1">
+              <Globe className="w-3 h-3" />
+              External Web
+            </span>
+          )}
         </div>
 
         <div
@@ -73,7 +120,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 
           {/* Structured Data Components */}
           {message.structuredData && (
-            <div className="mt-2">
+            <div className="mt-2 space-y-2">
               {message.structuredData.type === 'procedure' && message.structuredData.procedure && (
                 <ProcedureCard procedure={message.structuredData.procedure} />
               )}
@@ -86,10 +133,30 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
               {message.structuredData.service && (
                 <ServiceCard service={message.structuredData.service} />
               )}
+              {(message.structuredData.type === 'navigation' || message.structuredData.navigationRoute) && (
+                <NavigationActionCard
+                  route={message.structuredData.navigationRoute || (message.structuredData as any)}
+                />
+              )}
             </div>
           )}
 
-          {/* Citation Sources */}
+          {/* External Web Search Results */}
+          {message.externalSources && message.externalSources.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-indigo-500/20 space-y-2">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-300 flex items-center gap-1.5">
+                <Globe className="w-3 h-3 text-indigo-400" />
+                Information from the Web (SerpAPI Verified)
+              </span>
+              <div className="space-y-2">
+                {message.externalSources.map((ext, idx) => (
+                  <ExternalSourceCard key={idx} source={ext} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Verified Community Citation Sources */}
           {message.sources && message.sources.length > 0 && (
             <div className="mt-3 pt-3 border-t border-white/10 space-y-1.5">
               <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
@@ -120,11 +187,20 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
               variant="ghost"
               size="sm"
               onClick={handleSpeak}
-              className={`text-xs px-2 py-1 h-7 ${speaking ? 'text-sky-400' : 'text-slate-400 hover:text-white'}`}
+              className={`text-xs px-2 py-1 h-7 ${speaking ? 'text-sky-400 bg-sky-500/10' : 'text-slate-400 hover:text-white'}`}
               aria-label="Speak response"
             >
-              <Volume2 className={`w-3.5 h-3.5 mr-1 ${speaking ? 'animate-pulse text-sky-400' : ''}`} />
-              <span>{speaking ? 'Speaking...' : 'Listen'}</span>
+              {speaking ? (
+                <>
+                  <VolumeX className="w-3.5 h-3.5 mr-1 text-sky-400 animate-pulse" />
+                  <span>Stop</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-3.5 h-3.5 mr-1" />
+                  <span>Listen (ElevenLabs)</span>
+                </>
+              )}
             </GlassButton>
           </div>
         )}

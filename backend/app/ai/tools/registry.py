@@ -59,10 +59,20 @@ class ToolRegistry:
             elif tool_name == "calculate_route":
                 start = arguments.get("start_location") or "Library"
                 dest = arguments.get("destination") or "Student Services"
-                data = calculate_route_tool(db, community_id, start, dest)
+                accessible = arguments.get("accessible", False)
+                data = calculate_route_tool(db, community_id, start, dest, accessible=accessible)
             elif tool_name == "search_community_knowledge":
                 q = arguments.get("query") or ""
                 data = search_community_knowledge_tool(db, community_id, q)
+            elif tool_name == "search_web":
+                from app.search.client import search_client
+                q = arguments.get("query") or ""
+                results = search_client.search_sync(q)
+                data = {
+                    "query": q,
+                    "results_count": len(results),
+                    "results": [r.model_dump() for r in results],
+                }
             else:
                 return ToolResult(
                     tool_name=tool_name,

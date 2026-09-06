@@ -34,8 +34,12 @@ class GroundingValidator:
         retrieved_chunks: List[Any],
         tool_results: List[Any],
         needs_retrieval: bool = True,
+        is_external: bool = False,
     ) -> str:
         """Enforce strict refusal if query required community retrieval but found zero evidence."""
+        if is_external:
+            return answer
+
         if needs_retrieval and not retrieved_chunks and not tool_results:
             # Check if answer attempted to fabricate facts
             lower_ans = answer.lower()

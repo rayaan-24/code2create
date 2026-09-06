@@ -60,6 +60,14 @@ export const chatApi = {
         structuredData = data.structured_card as StructuredDataPayload;
       }
 
+      // Map external sources
+      const externalSources = (data.external_sources || []).map((ext: any) => ({
+        title: ext.title,
+        url: ext.url,
+        snippet: ext.snippet,
+        source: ext.source,
+      }));
+
       const aiMessage: ChatMessage = {
         id: `msg_resp_${Date.now()}`,
         conversationId,
@@ -68,6 +76,8 @@ export const chatApi = {
         timestamp: new Date().toISOString(),
         structuredData,
         sources: sources.length > 0 ? sources : undefined,
+        externalSources: externalSources.length > 0 ? externalSources : undefined,
+        isExternal: data.is_external || false,
       };
 
       return {
@@ -82,8 +92,21 @@ export const chatApi = {
     const lower = content.toLowerCase();
     let fallbackStructured: StructuredDataPayload | undefined;
     let replyText = "I couldn't verify that information from the available community sources.";
+    let isExternalFallback = false;
+    let externalSourcesFallback: any[] | undefined = undefined;
 
-    if (lower.includes('id') || lower.includes('lost') || lower.includes('card')) {
+    if (lower.includes('passport')) {
+      replyText = "Based on external official records (Passport Seva, Ministry of External Affairs, Govt of India), documents generally required for an Indian passport application include: (1) Proof of Present Address (Aadhaar, utility bill), (2) Proof of Date of Birth (Birth Certificate or 10th marksheet), (3) photographs, and (4) Annexure E.";
+      isExternalFallback = true;
+      externalSourcesFallback = [
+        {
+          title: "Official Indian Passport Application Guide & Document Checklist",
+          url: "https://www.passportindia.gov.in/AppOnlineProject/online/checklist",
+          snippet: "Documents generally required include Proof of Address, Date of Birth, and Annexure E.",
+          source: "Passport Seva - Ministry of External Affairs, Govt of India",
+        },
+      ];
+    } else if (lower.includes('id') || lower.includes('lost') || lower.includes('card')) {
       replyText = "I found the verified official procedure for Student ID Replacement. Here are the steps, required documentation, and office hours.";
       fallbackStructured = {
         type: 'procedure',
@@ -96,8 +119,24 @@ export const chatApi = {
         type: 'location',
         location: mockLocations[0],
       };
-    } else if (lower.includes('how long') || lower.includes('route') || lower.includes('navigate')) {
-      replyText = "Walking from Nexora Central Library to Student Services Center takes approximately 4 minutes (280 meters).";
+    } else if (lower.includes('how long') || lower.includes('route') || lower.includes('navigate') || lower.includes('take me there')) {
+      replyText = "Walking from Nexora Central Library to Student Services Center takes approximately 4 minutes (240 meters). Follow the Skybridge corridor to Silver Jubilee Tower Ground Floor.";
+      fallbackStructured = {
+        type: 'navigation',
+        navigationRoute: {
+          id: `route_${Date.now()}`,
+          startPoint: 'Central Library',
+          destination: 'Student Services Center (SJT-G12)',
+          etaMinutes: 4,
+          distanceMeters: 240,
+          floorChanges: ['Ground Floor -> SJT Ground Floor'],
+          steps: [
+            { instruction: 'Depart Central Library towards the Skybridge Overpass.', distance: '40m', landmark: 'Library Concourse' },
+            { instruction: 'Cross the covered Skybridge connector to Silver Jubilee Tower.', distance: '130m', landmark: 'Skybridge Overpass' },
+            { instruction: 'Arrive at Student Services Center (Room G12) on your right.', distance: '70m', landmark: 'SJT Directory' },
+          ],
+        },
+      };
     }
 
     const fallbackMsg: ChatMessage = {
@@ -107,7 +146,9 @@ export const chatApi = {
       content: replyText,
       timestamp: new Date().toISOString(),
       structuredData: fallbackStructured,
-      sources: [
+      isExternal: isExternalFallback,
+      externalSources: externalSourcesFallback,
+      sources: isExternalFallback ? undefined : [
         {
           id: `src_${Date.now()}`,
           title: 'Nexora Official Community Handbook 2026',

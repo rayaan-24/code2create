@@ -143,7 +143,7 @@ export default function DashboardPage() {
             </p>
 
             {/* Quick Prompt Input */}
-            <form onSubmit={handleQuickSubmit} className="relative flex items-center">
+            <form onSubmit={handleQuickSubmit} className="relative flex items-center mb-4">
               <input
                 type="text"
                 value={quickQuery}
@@ -158,6 +158,33 @@ export default function DashboardPage() {
                 </GlassButton>
               </div>
             </form>
+
+            {/* Try Asking Demo Discovery Chips */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Try asking:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  'I lost my ID card. What should I do?',
+                  'Where is Student Services?',
+                  'Who handles hostel maintenance?',
+                  'Navigate me to the library.',
+                  'What documents do I need?',
+                  'What is happening on campus?',
+                  'What documents are needed for a passport?',
+                ].map((prompt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => router.push(`/chat?prompt=${encodeURIComponent(prompt)}`)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10 hover:border-cyan-400/40 transition-all text-xs text-left"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 

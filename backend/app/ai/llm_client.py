@@ -138,10 +138,14 @@ class LLMClient:
         user_query_match = re.search(r"USER QUERY:\s*\n*([^\n]+)", prompt, re.IGNORECASE)
         query_text = user_query_match.group(1).lower().strip() if user_query_match else prompt.lower().strip()
 
-        if "passport" in query_text:
+        if "passport" in query_text and "photo" not in query_text:
             return (
-                "I couldn't verify that information from the available community sources. "
-                "External web search for government passport applications is not part of institutional records."
+                "Based on external official records (Passport Seva, Ministry of External Affairs, Govt of India), "
+                "the documents generally required for an Indian passport application include: "
+                "(1) Proof of Present Address (e.g. Aadhaar card, utility bill, or bank passbook), "
+                "(2) Proof of Date of Birth (Birth Certificate or 10th standard matriculation pass certificate), "
+                "(3) Standard passport-size photographs, and "
+                "(4) Self-attested Annexure E where applicable."
             )
         if any(k in query_text for k in ["id card", "replace", "lost property"]):
             return (
@@ -150,12 +154,12 @@ class LLMClient:
                 "Bring a valid government photo ID, fee clearance receipt, and passport-size photo. "
                 "A replacement fee of $15 applies."
             )
-        if any(k in query_text for k in ["student services", "office"]) or "silver jubilee tower" in prompt.lower() or "sjt" in prompt.lower():
+        if any(k in query_text for k in ["how long", "eta", "route", "time from", "take to get", "walk", "take me there"]):
+            return "The estimated walking time from the Library to Student Services Center (Silver Jubilee Tower, Room G12) is approximately 4 to 6 minutes (250m)."
+        if any(k in query_text for k in ["where", "location", "find", "room g12", "office", "student services"]):
             return "The Student Services Center is located in the Silver Jubilee Tower (SJT), Ground Floor, Room G12."
         if "library" in query_text and any(k in query_text for k in ["where", "location", "find"]):
             return "The Nexora Central Library is located in the Library & Information Commons, Levels 1 to 4."
-        if any(k in query_text for k in ["how long", "eta", "route", "time from"]):
-            return "The estimated walking time from the Library to Student Services Center (Silver Jubilee Tower, Room G12) is approximately 6 minutes."
 
         return "I couldn't verify that information from the available community sources. Would you like me to help you find the responsible department?"
 
@@ -175,7 +179,7 @@ class LLMClient:
             needs_tool = False
             target_tool = None
 
-            if any(k in target_text for k in ["how do i get", "navigate", "route", "how long", "take to reach", "eta", "time from"]):
+            if any(k in target_text for k in ["how do i get", "navigate", "route", "how long", "take to reach", "take me there", "eta", "time from"]):
                 intent = IntentType.NAVIGATION
                 needs_tool = True
                 target_tool = "calculate_route"
@@ -201,10 +205,12 @@ class LLMClient:
                 intent = IntentType.ANNOUNCEMENT
                 needs_tool = True
                 target_tool = "get_announcement"
+            elif any(k in target_text for k in ["passport", "prime minister", "visa", "external", "weather today"]):
+                intent = IntentType.EXTERNAL_INFORMATION
+                needs_tool = True
+                target_tool = "search_web"
             elif any(k in target_text for k in ["hello", "hi", "hey", "good morning", "thanks", "thank you"]):
                 intent = IntentType.GENERAL_CHAT
-            elif "passport" in target_text:
-                intent = IntentType.QUESTION
 
             return IntentClassificationResult(
                 intent=intent,

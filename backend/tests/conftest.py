@@ -210,6 +210,34 @@ def community_a(db):
         lib_chunk.metadata_dict = {"document_title": "Student Handbook"}
         db.add(lib_chunk)
 
+        # Seed navigation nodes and edges for comm_a_id
+        from app.models.navigation import NavigationNode, NavigationEdge, NodeType
+        n1 = NavigationNode(id="test-lib", community_id=comm.id, building_id="Library", floor=0, name="Library Main Entrance", node_type=NodeType.ENTRANCE, x=100.0, y=300.0)
+        n2 = NavigationNode(id="test-corridor", community_id=comm.id, building_id="Library", floor=0, name="Corridor A", node_type=NodeType.CORRIDOR, x=250.0, y=300.0)
+        n3 = NavigationNode(id="test-stair-0", community_id=comm.id, building_id="SJT", floor=0, name="SJT Stairs", node_type=NodeType.STAIR, x=400.0, y=200.0)
+        n4 = NavigationNode(id="test-elev-0", community_id=comm.id, building_id="SJT", floor=0, name="SJT Elevator", node_type=NodeType.ELEVATOR, x=400.0, y=400.0)
+        n5 = NavigationNode(id="test-sjt-g", community_id=comm.id, building_id="SJT", floor=0, name="SJT Ground Floor", node_type=NodeType.INTERSECTION, x=500.0, y=300.0)
+        n6 = NavigationNode(id="test-services", community_id=comm.id, building_id="SJT", floor=0, name="Student Services", node_type=NodeType.ROOM, x=750.0, y=300.0, location_id=loc.id)
+        n7 = NavigationNode(id="test-g12", community_id=comm.id, building_id="SJT", floor=0, name="Room G12", node_type=NodeType.ROOM, x=850.0, y=300.0)
+        n8 = NavigationNode(id="test-stair-1", community_id=comm.id, building_id="SJT", floor=1, name="SJT Stairs Floor 1", node_type=NodeType.STAIR, x=400.0, y=200.0)
+        n9 = NavigationNode(id="test-elev-1", community_id=comm.id, building_id="SJT", floor=1, name="SJT Elevator Floor 1", node_type=NodeType.ELEVATOR, x=400.0, y=400.0)
+        n10 = NavigationNode(id="test-it-1", community_id=comm.id, building_id="SJT", floor=1, name="IT Help Desk", node_type=NodeType.ROOM, x=750.0, y=300.0)
+
+        db.add_all([n1, n2, n3, n4, n5, n6, n7, n8, n9, n10])
+        db.flush()
+
+        e1 = NavigationEdge(community_id=comm.id, source_node_id=n1.id, destination_node_id=n2.id, distance=35.0, accessible=True, stairs_required=False, bidirectional=True)
+        e2 = NavigationEdge(community_id=comm.id, source_node_id=n2.id, destination_node_id=n3.id, distance=30.0, accessible=False, stairs_required=True, bidirectional=True)
+        e3 = NavigationEdge(community_id=comm.id, source_node_id=n2.id, destination_node_id=n4.id, distance=32.0, accessible=True, stairs_required=False, elevator_available=True, bidirectional=True)
+        e4 = NavigationEdge(community_id=comm.id, source_node_id=n3.id, destination_node_id=n5.id, distance=25.0, accessible=False, stairs_required=True, bidirectional=True)
+        e5 = NavigationEdge(community_id=comm.id, source_node_id=n4.id, destination_node_id=n5.id, distance=25.0, accessible=True, stairs_required=False, elevator_available=True, bidirectional=True)
+        e6 = NavigationEdge(community_id=comm.id, source_node_id=n5.id, destination_node_id=n6.id, distance=60.0, accessible=True, stairs_required=False, bidirectional=True)
+        e7 = NavigationEdge(community_id=comm.id, source_node_id=n6.id, destination_node_id=n7.id, distance=20.0, accessible=True, stairs_required=False, bidirectional=True)
+        e8 = NavigationEdge(community_id=comm.id, source_node_id=n3.id, destination_node_id=n8.id, distance=20.0, accessible=False, stairs_required=True, bidirectional=True)
+        e9 = NavigationEdge(community_id=comm.id, source_node_id=n4.id, destination_node_id=n9.id, distance=15.0, accessible=True, stairs_required=False, elevator_available=True, bidirectional=True)
+        e10 = NavigationEdge(community_id=comm.id, source_node_id=n9.id, destination_node_id=n10.id, distance=50.0, accessible=True, stairs_required=False, bidirectional=True)
+
+        db.add_all([e1, e2, e3, e4, e5, e6, e7, e8, e9, e10])
         db.commit()
 
     return comm

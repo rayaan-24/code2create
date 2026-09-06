@@ -36,9 +36,15 @@ class Settings(BaseSettings):
     AI_REQUEST_TIMEOUT: int = 30
     RATE_LIMIT_PER_MINUTE: int = 60
 
-    # Phase 4 integration placeholders
+    # Phase 4: Voice & Web Search Configuration
     ELEVENLABS_API_KEY: str = ""
+    ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
+    ELEVENLABS_MODEL_ID: str = "eleven_multilingual_v2"
+    VOICE_REQUEST_TIMEOUT: int = 15
+
     SERPAPI_API_KEY: str = ""
+    SERPAPI_ENGINE: str = "google"
+    SEARCH_REQUEST_TIMEOUT: int = 10
 
     model_config = SettingsConfigDict(
         env_file=".env",

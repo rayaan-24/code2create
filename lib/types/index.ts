@@ -119,6 +119,13 @@ export interface StructuredDataPayload {
   navigationRoute?: NavigationRoute;
 }
 
+export interface ExternalSourceItem {
+  title: string;
+  url: string;
+  snippet: string;
+  source: string;
+}
+
 export interface ChatMessage {
   id: string;
   conversationId: string;
@@ -127,6 +134,8 @@ export interface ChatMessage {
   timestamp: string;
   structuredData?: StructuredDataPayload;
   sources?: SourceItem[];
+  externalSources?: ExternalSourceItem[];
+  isExternal?: boolean;
   isStreaming?: boolean;
 }
 

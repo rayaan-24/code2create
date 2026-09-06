@@ -210,6 +210,27 @@ class AIOrchestrator:
                 tool_results_data.append({"tool": "get_service", "result": res.data})
                 structured_card = {"type": "service", "service": res.data}
 
+        external_sources: List[Dict[str, Any]] = []
+        is_external_query = (intent == "EXTERNAL_INFORMATION" or any(k in resolved_query.lower() for k in ["passport", "prime minister", "visa", "external"]))
+        if is_external_query:
+            intent = "EXTERNAL_INFORMATION"
+            executed_tool_name = "search_web"
+            res = tool_registry.execute_tool(
+                "search_web", {"query": resolved_query}, db, community.id, current_user.role
+            )
+            if res.status == "success" and res.data:
+                executed_tool_result = res.data
+                tool_results_data.append({"tool": "search_web", "result": res.data})
+                for item in res.data.get("results", [])[:3]:
+                    external_sources.append(item)
+                    actions.append(
+                        ActionItem(
+                            type=ActionType.OPEN_WEB_SOURCE,
+                            label=f"External: {item.get('source', 'Official Web')}",
+                            payload={"url": item.get("url", "#"), "title": item.get("title", "")},
+                        )
+                    )
+
         # 8. Grounded LLM Answer Generation
         history_context = self.context_mgr.get_formatted_history(session)
         system_prompt = NEXORA_BASE_SYSTEM_PROMPT.format(
@@ -241,6 +262,7 @@ class AIOrchestrator:
             retrieved_chunks=sources,
             tool_results=tool_results_data,
             needs_retrieval=(intent in ["QUESTION", "PROCEDURE", "LOCATION", "SERVICE_LOOKUP", "PERSON_LOOKUP"]),
+            is_external=is_external_query,
         )
 
         # 10. Update Conversation Memory & Persist Turn
@@ -258,6 +280,9 @@ class AIOrchestrator:
             intent=intent,
             actions=actions,
             sources=sources,
+            external_sources=external_sources,
+            tools_used=[executed_tool_name] if executed_tool_name else [],
+            is_external=is_external_query,
             structured_card=structured_card,
             requires_navigation=(intent == "NAVIGATION" or any(a.type == ActionType.NAVIGATE for a in actions)),
             debug_info=debug_info if debug_mode else None,

@@ -25,6 +25,7 @@ from app.models.document import Document, DocumentVersion
 from app.models.announcement import Announcement, AnnouncementPriority
 from app.models.audit import AuditLog, AuditAction
 from app.models.chunk import KnowledgeChunk
+from app.models.navigation import NavigationNode, NavigationEdge, NodeType
 from app.ai.retrieval.embeddings import embedding_provider
 from app.services.audit_service import log_audit_event
 
@@ -641,13 +642,245 @@ def seed_database():
 
         db.commit()
 
-        print("[SUCCESS] Nexora database successfully seeded with demo community, accounts, locations, services, procedures, and knowledge chunks.")
+        # 11. Seed Navigation Graph Nodes and Edges
+        seed_navigation(db, community)
+
+        print("[SUCCESS] Nexora database successfully seeded with demo community, accounts, locations, services, procedures, knowledge chunks, and navigation graph.")
     except Exception as e:
         db.rollback()
         print(f"[ERROR] Failed to seed database: {e}")
         raise
     finally:
         db.close()
+
+
+def seed_navigation(db, community):
+    """Seed comprehensive demo indoor wayfinding graph connecting Library, SJT, and Academic Wings."""
+    existing_node = db.query(NavigationNode).filter(NavigationNode.community_id == community.id).first()
+    if existing_node:
+        print("[INFO] Navigation graph already seeded.")
+        return
+
+    # Find locations for foreign keys
+    loc_lib = db.query(Location).filter(Location.community_id == community.id, Location.name.ilike("%library%")).first()
+    loc_sjt = db.query(Location).filter(Location.community_id == community.id, Location.name.ilike("%student services%")).first()
+    loc_cat = db.query(Location).filter(Location.community_id == community.id, Location.name.ilike("%helpdesk%")).first()
+    loc_health = db.query(Location).filter(Location.community_id == community.id, Location.name.ilike("%medical%")).first()
+
+    # Create Nodes
+    n_lib_entrance = NavigationNode(
+        community_id=community.id,
+        building_id="LIB",
+        floor="Ground Floor",
+        name="Central Library - Main Entrance",
+        node_type=NodeType.ENTRANCE,
+        x=100.0,
+        y=150.0,
+        is_accessible=True,
+        location_id=loc_lib.id if loc_lib else None,
+    )
+    n_lib_concourse = NavigationNode(
+        community_id=community.id,
+        building_id="LIB",
+        floor="Ground Floor",
+        name="Library Main Concourse",
+        node_type=NodeType.LANDMARK,
+        x=200.0,
+        y=150.0,
+        is_accessible=True,
+    )
+    n_lib_stacks = NavigationNode(
+        community_id=community.id,
+        building_id="LIB",
+        floor="Ground Floor",
+        name="Library Book Stacks & Archives",
+        node_type=NodeType.ROOM,
+        x=250.0,
+        y=100.0,
+        is_accessible=True,
+    )
+    n_skybridge_west = NavigationNode(
+        community_id=community.id,
+        building_id="LIB",
+        floor="Ground Floor",
+        name="Skybridge West Concourse",
+        node_type=NodeType.CORRIDOR,
+        x=320.0,
+        y=180.0,
+        is_accessible=True,
+    )
+    n_skybridge_east = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Ground Floor",
+        name="Skybridge East Connector",
+        node_type=NodeType.CORRIDOR,
+        x=420.0,
+        y=220.0,
+        is_accessible=True,
+    )
+    n_sjt_stair_g = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Ground Floor",
+        name="SJT Ground Floor Staircase",
+        node_type=NodeType.STAIR,
+        x=480.0,
+        y=220.0,
+        is_accessible=False,
+    )
+    n_sjt_elevator_g = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Ground Floor",
+        name="SJT Ground Floor Elevator Bank",
+        node_type=NodeType.ELEVATOR,
+        x=520.0,
+        y=220.0,
+        is_accessible=True,
+    )
+    n_sjt_lobby = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Ground Floor",
+        name="SJT Ground Floor Main Lobby",
+        node_type=NodeType.ENTRANCE,
+        x=500.0,
+        y=280.0,
+        is_accessible=True,
+    )
+    n_sjt_corridor_g = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Ground Floor",
+        name="SJT Ground Floor Wing Corridor",
+        node_type=NodeType.CORRIDOR,
+        x=580.0,
+        y=310.0,
+        is_accessible=True,
+    )
+    n_sjt_g12 = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Ground Floor",
+        name="Student Services Center (Room G12)",
+        node_type=NodeType.ROOM,
+        x=680.0,
+        y=310.0,
+        is_accessible=True,
+        location_id=loc_sjt.id if loc_sjt else None,
+    )
+    n_sjt_exit_east = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Ground Floor",
+        name="SJT East Emergency Exit",
+        node_type=NodeType.EXIT,
+        x=800.0,
+        y=310.0,
+        is_accessible=True,
+    )
+
+    # Multi-floor Nodes (Level 1)
+    n_sjt_stair_1 = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Level 1",
+        name="SJT Level 1 Staircase",
+        node_type=NodeType.STAIR,
+        x=480.0,
+        y=220.0,
+        is_accessible=False,
+    )
+    n_sjt_elevator_1 = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Level 1",
+        name="SJT Level 1 Elevator Bank",
+        node_type=NodeType.ELEVATOR,
+        x=520.0,
+        y=220.0,
+        is_accessible=True,
+    )
+    n_sjt_corridor_1 = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Level 1",
+        name="SJT Level 1 Academic Gallery",
+        node_type=NodeType.CORRIDOR,
+        x=580.0,
+        y=250.0,
+        is_accessible=True,
+    )
+    n_it_desk = NavigationNode(
+        community_id=community.id,
+        building_id="SJT",
+        floor="Level 1",
+        name="Campus IT Help Desk (Room 204)",
+        node_type=NodeType.ROOM,
+        x=680.0,
+        y=250.0,
+        is_accessible=True,
+        location_id=loc_cat.id if loc_cat else None,
+    )
+    n_medical = NavigationNode(
+        community_id=community.id,
+        building_id="HWC",
+        floor="Ground Floor",
+        name="Campus Health & Urgent Clinic",
+        node_type=NodeType.ROOM,
+        x=850.0,
+        y=150.0,
+        is_accessible=True,
+        location_id=loc_health.id if loc_health else None,
+    )
+
+    all_nodes = [
+        n_lib_entrance, n_lib_concourse, n_lib_stacks, n_skybridge_west, n_skybridge_east,
+        n_sjt_stair_g, n_sjt_elevator_g, n_sjt_lobby, n_sjt_corridor_g, n_sjt_g12, n_sjt_exit_east,
+        n_sjt_stair_1, n_sjt_elevator_1, n_sjt_corridor_1, n_it_desk, n_medical
+    ]
+    db.add_all(all_nodes)
+    db.commit()
+    for n in all_nodes:
+        db.refresh(n)
+
+    # Create Walkable Edges
+    edges = [
+        # Ground Floor Library
+        NavigationEdge(community_id=community.id, source_node_id=n_lib_entrance.id, destination_node_id=n_lib_concourse.id, distance=18.0, accessible=True),
+        NavigationEdge(community_id=community.id, source_node_id=n_lib_concourse.id, destination_node_id=n_lib_stacks.id, distance=25.0, accessible=True),
+        NavigationEdge(community_id=community.id, source_node_id=n_lib_concourse.id, destination_node_id=n_skybridge_west.id, distance=40.0, accessible=True),
+
+        # Skybridge Connector
+        NavigationEdge(community_id=community.id, source_node_id=n_skybridge_west.id, destination_node_id=n_skybridge_east.id, distance=55.0, accessible=True),
+
+        # Skybridge to SJT Connectors (Stairs vs Elevator)
+        NavigationEdge(community_id=community.id, source_node_id=n_skybridge_east.id, destination_node_id=n_sjt_stair_g.id, distance=20.0, accessible=True),
+        NavigationEdge(community_id=community.id, source_node_id=n_skybridge_east.id, destination_node_id=n_sjt_elevator_g.id, distance=25.0, accessible=True),
+
+        # Stairs / Elevator to SJT Lobby
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_stair_g.id, destination_node_id=n_sjt_lobby.id, distance=15.0, accessible=False, stairs_required=True),
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_elevator_g.id, destination_node_id=n_sjt_lobby.id, distance=15.0, accessible=True, elevator_available=True),
+
+        # SJT Lobby to Wing Corridor and Student Services
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_lobby.id, destination_node_id=n_sjt_corridor_g.id, distance=30.0, accessible=True),
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_corridor_g.id, destination_node_id=n_sjt_g12.id, distance=35.0, accessible=True),
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_corridor_g.id, destination_node_id=n_sjt_exit_east.id, distance=45.0, accessible=True),
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_lobby.id, destination_node_id=n_medical.id, distance=90.0, accessible=True),
+
+        # Multi-floor Transitions to Level 1
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_stair_g.id, destination_node_id=n_sjt_stair_1.id, distance=20.0, accessible=False, stairs_required=True),
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_elevator_g.id, destination_node_id=n_sjt_elevator_1.id, distance=15.0, accessible=True, elevator_available=True),
+
+        # Level 1 Connections
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_stair_1.id, destination_node_id=n_sjt_corridor_1.id, distance=25.0, accessible=False),
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_elevator_1.id, destination_node_id=n_sjt_corridor_1.id, distance=20.0, accessible=True),
+        NavigationEdge(community_id=community.id, source_node_id=n_sjt_corridor_1.id, destination_node_id=n_it_desk.id, distance=30.0, accessible=True),
+    ]
+    db.add_all(edges)
+    db.commit()
+    print(f"[SUCCESS] Navigation graph seeded with {len(all_nodes)} nodes and {len(edges)} walkable edges.")
 
 
 if __name__ == "__main__":

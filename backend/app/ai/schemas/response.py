@@ -9,6 +9,7 @@ class ActionType(str, Enum):
     START_PROCEDURE = "START_PROCEDURE"
     CONTACT_PERSON = "CONTACT_PERSON"
     VIEW_SERVICE = "VIEW_SERVICE"
+    OPEN_WEB_SOURCE = "OPEN_WEB_SOURCE"
 
 
 class ActionItem(BaseModel):
@@ -38,7 +39,10 @@ class AIResponse(BaseModel):
     intent: str = "QUESTION"
     actions: List[ActionItem] = Field(default_factory=list)
     sources: List[SourceAttribution] = Field(default_factory=list)
+    external_sources: List[Dict[str, Any]] = Field(default_factory=list)
+    tools_used: List[str] = Field(default_factory=list)
     structured_card: Optional[Dict[str, Any]] = None
+    is_external: bool = False
     requires_navigation: bool = False
     requires_clarification: bool = False
     debug_info: Optional[Dict[str, Any]] = None

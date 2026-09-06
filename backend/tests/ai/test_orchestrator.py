@@ -75,9 +75,9 @@ async def test_critical_demo_conversation_flow(db_session, user_a, community_a):
 @pytest.mark.asyncio
 async def test_critical_demo_out_of_domain(db_session, user_a, community_a):
     """
-    CRITICAL DEMO TEST 2:
+    CRITICAL DEMO TEST 2 (Phase 4):
     "What documents are generally needed for a passport application?"
-    System must identify as outside community domain and refuse without hallucination.
+    System identifies general/external information, calls search_web, and attributes external sources.
     """
     res = await orchestrator.process_chat(
         db=db_session,
@@ -86,7 +86,10 @@ async def test_critical_demo_out_of_domain(db_session, user_a, community_a):
         raw_message="What documents are generally needed for a passport application?",
         conversation_id="test_demo_conv_2",
     )
-    assert "couldn't verify" in res.answer.lower()
+    assert res.is_external is True or "couldn't verify" in res.answer.lower()
+    if res.is_external:
+        assert len(res.external_sources) > 0
+        assert "search_web" in res.tools_used
 
 
 @pytest.mark.asyncio

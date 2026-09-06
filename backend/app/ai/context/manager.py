@@ -11,6 +11,7 @@ class ContextManager:
 
     def __init__(self, max_history_turns: int = 6):
         self.max_history_turns = max_history_turns
+        self._cached_states: Dict[str, ConversationState] = {}
 
     def get_or_create_session(
         self,
@@ -33,11 +34,14 @@ class ContextManager:
             )
 
         if not session:
-            session = ConversationSession(
-                user_id=user_id,
-                community_id=community_id,
-                title="New Community Query",
-            )
+            init_kwargs = {
+                "user_id": user_id,
+                "community_id": community_id,
+                "title": "New Community Query",
+            }
+            if session_id:
+                init_kwargs["id"] = session_id
+            session = ConversationSession(**init_kwargs)
             db.add(session)
             db.commit()
             db.refresh(session)
@@ -107,3 +111,17 @@ class ContextManager:
         # 4. Save state
         session.state_json = json.dumps(state.model_dump())
         db.commit()
+        self._cached_states[session.id] = state
+
+    def get_state(self, conversation_id: str, db: Optional[Session] = None) -> Optional[ConversationState]:
+        """Retrieve the latest conversation state by conversation_id."""
+        if conversation_id in self._cached_states:
+            return self._cached_states[conversation_id]
+        if db:
+            session = db.query(ConversationSession).filter(ConversationSession.id == conversation_id).first()
+            if session and session.state_json:
+                try:
+                    return ConversationState.model_validate(json.loads(session.state_json))
+                except Exception:
+                    pass
+        return None
