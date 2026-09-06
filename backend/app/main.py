@@ -101,23 +101,97 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 # Health checks
 @app.get("/health", tags=["Health"])
-def health_check():
-    return {"status": "ok", "environment": settings.ENVIRONMENT}
+async def health_check():
+    """
+    Unified system health check distinguishing healthy, degraded, or unavailable.
+    Does not expose sensitive infrastructure details publicly.
+    """
+    db_status = "unavailable"
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+        db_status = "healthy"
+    except Exception:
+        db_status = "unavailable"
+    finally:
+        db.close()
+
+    ai_status = "degraded"
+    try:
+        async with httpx.AsyncClient(timeout=1.5) as client:
+            resp = await client.get(f"{settings.SGLANG_BASE_URL.rstrip('/')}/v1/models")
+            if resp.status_code == 200:
+                ai_status = "healthy"
+    except Exception:
+        ai_status = "degraded"  # Graceful local fallback active
+
+    search_status = "healthy" if settings.SERPAPI_API_KEY else "degraded"
+    voice_status = "healthy" if settings.ELEVENLABS_API_KEY else "degraded"
+
+    overall_status = "healthy"
+    if db_status == "unavailable":
+        overall_status = "unavailable"
+    elif "degraded" in [ai_status, search_status, voice_status]:
+        overall_status = "degraded"
+
+    http_code = 200 if overall_status != "unavailable" else status.HTTP_503_SERVICE_UNAVAILABLE
+
+    return JSONResponse(
+        status_code=http_code,
+        content={
+            "status": overall_status,
+            "version": "1.0.0",
+            "environment": settings.ENVIRONMENT,
+            "components": {
+                "database": db_status,
+                "ai": ai_status,
+                "search": search_status,
+                "voice": voice_status,
+            },
+        },
+    )
 
 
+@app.get("/health/database", tags=["Health"])
 @app.get("/health/db", tags=["Health"])
 def db_health_check():
     db = SessionLocal()
     try:
         db.execute(text("SELECT 1"))
-        return {"status": "ok", "database": "connected"}
+        return {"status": "healthy", "service": "database", "message": "connected"}
     except Exception as e:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "error", "database": str(e)},
+            content={"status": "unavailable", "service": "database", "message": "connection failed"},
         )
     finally:
         db.close()
+
+
+@app.get("/health/ai", tags=["Health"])
+async def ai_health_check():
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get(f"{settings.SGLANG_BASE_URL.rstrip('/')}/v1/models")
+            if resp.status_code == 200:
+                return {"status": "healthy", "service": "ai", "mode": "sglang_connected"}
+    except Exception:
+        pass
+    return {"status": "degraded", "service": "ai", "mode": "local_fallback_active"}
+
+
+@app.get("/health/search", tags=["Health"])
+def search_health_check():
+    if settings.SERPAPI_API_KEY:
+        return {"status": "healthy", "service": "search", "mode": "serpapi_configured"}
+    return {"status": "degraded", "service": "search", "mode": "local_fallback_active"}
+
+
+@app.get("/health/voice", tags=["Health"])
+def voice_health_check():
+    if settings.ELEVENLABS_API_KEY:
+        return {"status": "healthy", "service": "voice", "mode": "elevenlabs_configured"}
+    return {"status": "degraded", "service": "voice", "mode": "local_synthesis_fallback_active"}
 
 
 # Mount API V1 routers

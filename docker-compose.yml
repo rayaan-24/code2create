@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: nexora-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nexora_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexora_secure_password_123}
+      POSTGRES_DB: ${POSTGRES_DB:-nexora_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nexora_admin} -d ${POSTGRES_DB:-nexora_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. NEXORA FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexora-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://nexora_admin:nexora_secure_password_123@postgres:5432/nexora_db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-demo_secret_key_change_in_production_min32chars}
+      - SGLANG_BASE_URL=${SGLANG_BASE_URL:-http://host.docker.internal:30000}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - SERPAPI_API_KEY=${SERPAPI_API_KEY:-}
+      - BACKEND_CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # 3. NEXORA Next.js Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexora-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NODE_ENV=production
+
+volumes:
+  postgres_data:
+    driver: local

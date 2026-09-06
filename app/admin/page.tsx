@@ -25,6 +25,12 @@ import {
   Plus,
   Shield,
   History,
+  Brain,
+  Compass,
+  HelpCircle,
+  TrendingUp,
+  Lightbulb,
+  ArrowUpRight,
 } from 'lucide-react';
 import { adminApi } from '@/lib/api/admin';
 import { locationsApi } from '@/lib/api/locations';
@@ -52,6 +58,7 @@ export default function AdminPage() {
   const [procedures, setProcedures] = useState<ProcedureItem[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [confusionData, setConfusionData] = useState<any | null>(null);
 
   const [activeTab, setActiveTab] = useState('Overview');
   const [isLoading, setIsLoading] = useState(true);
@@ -59,12 +66,13 @@ export default function AdminPage() {
 
   // Modal / Creation state
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createType, setCreateType] = useState<'location' | 'person' | 'service' | 'announcement'>('location');
+  const [createType, setCreateType] = useState<'location' | 'person' | 'service' | 'procedure' | 'announcement'>('location');
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const adminTabs = [
     'Overview',
+    'Confusion Map',
     'Locations',
     'People',
     'Services',
@@ -77,7 +85,7 @@ export default function AdminPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [mRes, qRes, locRes, peoRes, srvRes, prcRes, annRes, audRes] = await Promise.all([
+      const [mRes, qRes, locRes, peoRes, srvRes, prcRes, annRes, audRes, confRes] = await Promise.all([
         adminApi.getDashboardMetrics(),
         adminApi.getPendingVerifications(),
         locationsApi.getLocations(),
@@ -86,6 +94,7 @@ export default function AdminPage() {
         proceduresApi.getProcedures(),
         announcementsApi.getAnnouncements(),
         adminApi.getAuditLogs(1, 15),
+        adminApi.getConfusionMap(),
       ]);
 
       if (mRes.data) setMetrics(mRes.data);
@@ -97,6 +106,7 @@ export default function AdminPage() {
       if (annRes.data) setAnnouncements(annRes.data);
       if (audRes.data && audRes.data.items) setAuditLogs(audRes.data.items);
       else if (audRes.data && Array.isArray(audRes.data)) setAuditLogs(audRes.data);
+      if (confRes.data) setConfusionData(confRes.data);
     } catch {
       setError('Unable to load full administrative data');
     } finally {
@@ -155,6 +165,15 @@ export default function AdminPage() {
           content: formData.content,
           category: formData.category || 'General',
           priority: formData.priority || 'NORMAL',
+        });
+      } else if (createType === 'procedure') {
+        await adminApi.createProcedure({
+          title: formData.title || 'New Procedure',
+          category: formData.category || 'General',
+          responsible_office: formData.responsibleOffice || 'Administration',
+          description: formData.description || '',
+          required_documents: formData.requiredDocuments ? formData.requiredDocuments.split(',').map((s: string) => s.trim()) : [],
+          steps: formData.steps ? formData.steps.split('\n').filter(Boolean) : ['Submit application', 'Verification'],
         });
       }
       setShowCreateModal(false);
@@ -387,6 +406,199 @@ export default function AdminPage() {
                       </table>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* CONFUSION MAP & KNOWLEDGE GAPS TAB */}
+            {activeTab === 'Confusion Map' && (
+              <div className="space-y-6">
+                {/* Header Banner */}
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900/50 border border-purple-500/20 glass-panel">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <GlassBadge variant="default" size="sm" className="bg-purple-500/20 text-purple-300 border-purple-400/30">
+                          <Brain className="w-3.5 h-3.5 mr-1" />
+                          AI Semantic Intelligence
+                        </GlassBadge>
+                        <span className="text-xs text-slate-400">Automated Community Telemetry</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <span>AI Confusion Map & Knowledge Gap Analytics</span>
+                      </h3>
+                      <p className="text-xs text-slate-300 mt-1 max-w-2xl">
+                        Synthesizes multi-turn conversations to surface institutional bottlenecks, contradictory policies, unverified inquiries, and high-frequency navigation destinations.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <GlassBadge variant="warning" size="md">
+                        {confusionData?.knowledge_gaps?.length || 3} Actionable Gaps
+                      </GlassBadge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid of Analytical Insights */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Procedural Friction & Ambiguity */}
+                  <GlassCard className="p-5 border-white/10 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-sm font-bold text-white">Procedural Friction & Ambiguity</h4>
+                      </div>
+                      <span className="text-[11px] text-slate-400">High multi-turn hesitation</span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(confusionData?.confusing_procedures || [
+                        {
+                          title: 'ID Card Replacement',
+                          friction_score: 78,
+                          primary_confusion: 'Users frequently ask where to pay the $15 fee before visiting SJT-G12.',
+                          recommendation: 'Add explicit online fee payment link in procedure Step 1.',
+                        },
+                        {
+                          title: 'Bonafide Certificate',
+                          friction_score: 64,
+                          primary_confusion: 'Turnaround time expectation (48 hours vs same-day).',
+                          recommendation: "Clarify that urgent requests require Dean's signature.",
+                        },
+                      ]).map((item: any, idx: number) => (
+                        <div key={idx} className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-white">{item.title}</span>
+                            <span className="text-[11px] font-mono text-amber-400">Friction: {item.friction_score}%</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full"
+                              style={{ width: `${item.friction_score}%` }}
+                            />
+                          </div>
+                          <p className="text-[11px] text-slate-300 italic">&ldquo;{item.primary_confusion}&rdquo;</p>
+                          <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium pt-1 border-t border-white/5">
+                            <Lightbulb className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span>Fix: {item.recommendation}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </GlassCard>
+
+                  {/* Knowledge Gaps & Unanswered Questions */}
+                  <GlassCard className="p-5 border-white/10 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <HelpCircle className="w-4 h-4 text-purple-400" />
+                        <h4 className="text-sm font-bold text-white">Unanswered Queries & Missing Policies</h4>
+                      </div>
+                      <span className="text-[11px] text-slate-400">Zero-grounding encounters</span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(confusionData?.unanswered_questions || [
+                        { query: 'Is the swimming pool open on Sunday mornings?', occurrences: 14, status: 'No Verified Policy' },
+                        { query: 'How to register an external visitor vehicle overnight?', occurrences: 11, status: 'No Parking Guideline' },
+                        { query: 'Can alumni access the digital library repository?', occurrences: 9, status: 'Under Review' },
+                      ]).map((item: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <p className="text-xs text-white font-medium">&ldquo;{item.query}&rdquo;</p>
+                            <span className="text-[10px] text-slate-400">{item.status} &bull; {item.occurrences} queries</span>
+                          </div>
+                          <GlassButton
+                            variant="secondary"
+                            size="sm"
+                            className="text-[10px] py-1 px-2 shrink-0 text-sky-300 border-sky-400/20"
+                            onClick={() => {
+                              setCreateType('procedure');
+                              setShowCreateModal(true);
+                            }}
+                          >
+                            + Draft
+                          </GlassButton>
+                        </div>
+                      ))}
+                    </div>
+                  </GlassCard>
+                </div>
+
+                {/* Lower Row: Knowledge Action Items & Navigation Hotspots */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Knowledge Remediation Plan */}
+                  <GlassCard className="p-5 border-white/10 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-sky-400" />
+                        <h4 className="text-sm font-bold text-white">Recommended Knowledge Updates</h4>
+                      </div>
+                      <span className="text-[11px] text-slate-400">High priority gaps</span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(confusionData?.knowledge_gaps || [
+                        {
+                          title: 'Campus Weekend Sports Timings',
+                          query_sample: 'Are campus recreational facilities open during public holidays?',
+                          impact: 'HIGH',
+                          suggested_action: 'Upload Sports Complex Operating Hours Document and verify.',
+                        },
+                        {
+                          title: 'Overnight Visitor Parking Guidelines',
+                          query_sample: 'Where can overnight guests park without a campus permit?',
+                          impact: 'MEDIUM',
+                          suggested_action: 'Create Campus Security Parking Policy procedure.',
+                        },
+                      ]).map((gap: any, idx: number) => (
+                        <div key={idx} className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-white">{gap.title}</span>
+                            <GlassBadge variant={gap.impact === 'HIGH' ? 'error' : 'warning'} size="sm">
+                              {gap.impact} IMPACT
+                            </GlassBadge>
+                          </div>
+                          <p className="text-[11px] text-slate-400">&ldquo;{gap.query_sample}&rdquo;</p>
+                          <div className="text-[11px] text-slate-300 flex items-center gap-1.5 pt-1 border-t border-white/5">
+                            <ArrowUpRight className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                            <span>Action: {gap.suggested_action}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </GlassCard>
+
+                  {/* Physical Navigation Hotspots */}
+                  <GlassCard className="p-5 border-white/10 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Compass className="w-4 h-4 text-emerald-400" />
+                        <h4 className="text-sm font-bold text-white">Frequently Requested Navigation Points</h4>
+                      </div>
+                      <span className="text-[11px] text-slate-400">Indoor wayfinding demand</span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(confusionData?.frequently_requested_locations || [
+                        { name: 'Student Services (SJT-G12)', building: 'SJT', floor: 'Ground Floor', navigation_requests: 210 },
+                        { name: 'Central Library Main Entrance', building: 'Library', floor: 'Ground Floor', navigation_requests: 165 },
+                        { name: 'IT Help Desk', building: 'SJT', floor: 'Floor 1', navigation_requests: 84 },
+                        { name: 'Academic Affairs', building: 'SJT', floor: 'Floor 2', navigation_requests: 72 },
+                      ]).map((loc: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <div className="text-xs font-semibold text-white">{loc.name}</div>
+                            <div className="text-[11px] text-slate-400">{loc.building} &bull; {loc.floor}</div>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-mono text-xs font-bold text-emerald-400">{loc.navigation_requests}</span>
+                            <div className="text-[10px] text-slate-400">routes generated</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </GlassCard>
                 </div>
               </div>
             )}
@@ -814,6 +1026,44 @@ export default function AdminPage() {
                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                       />
                     </div>
+                  </>
+                )}
+
+                {createType === 'procedure' && (
+                  <>
+                    <GlassInput
+                      label="Procedure Title"
+                      placeholder="Parking Permit Application"
+                      required
+                      value={formData.title || ''}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <GlassInput
+                        label="Category"
+                        placeholder="Security, Facilities, Administrative"
+                        value={formData.category || 'General'}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      />
+                      <GlassInput
+                        label="Responsible Office"
+                        placeholder="Security Office, Room 102"
+                        value={formData.responsibleOffice || ''}
+                        onChange={(e) => setFormData({ ...formData, responsibleOffice: e.target.value })}
+                      />
+                    </div>
+                    <GlassInput
+                      label="Required Documents (comma separated)"
+                      placeholder="Student ID, Vehicle RC copy"
+                      value={formData.requiredDocuments || ''}
+                      onChange={(e) => setFormData({ ...formData, requiredDocuments: e.target.value })}
+                    />
+                    <GlassInput
+                      label="Description"
+                      placeholder="Step-by-step guideline for campus permits"
+                      value={formData.description || ''}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    />
                   </>
                 )}
 

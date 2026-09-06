@@ -197,4 +197,8 @@ export const adminApi = {
       body: JSON.stringify(payload),
     });
   },
+
+  async getConfusionMap(): Promise<ApiResponse<any>> {
+    return apiRequest('/api/v1/admin/analytics/confusion-map');
+  },
 };
