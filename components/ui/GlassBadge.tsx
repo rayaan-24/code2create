@@ -16,12 +16,12 @@ export const GlassBadge: React.FC<GlassBadgeProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    default: 'bg-slate-800/80 text-slate-300 border-white/10',
-    primary: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-    success: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    warning: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-    error: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-    outline: 'bg-transparent text-slate-300 border-white/20',
+    default: 'bg-[#FFEBF0] text-[#3D2D33] border-[rgba(160,50,85,0.22)] font-medium',
+    primary: 'bg-[#FFE2E8] text-[#B82346] border-[#EB4D6E]/40 font-bold',
+    success: 'bg-emerald-100/80 text-emerald-900 border-emerald-300 font-semibold',
+    warning: 'bg-amber-100/80 text-amber-950 border-amber-300 font-semibold',
+    error: 'bg-rose-100/80 text-rose-950 border-rose-300 font-semibold',
+    outline: 'bg-white/95 text-[#111111] border-[rgba(160,50,85,0.28)] font-semibold shadow-2xs',
   };
 
   const sizeStyles = {

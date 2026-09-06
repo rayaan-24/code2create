@@ -14,8 +14,8 @@ import {
 
 export const mockCurrentUser: User = {
   id: 'usr_nex_01',
-  name: 'Alex Rivera',
-  email: 'alex.rivera@nexora.edu',
+  name: 'Rayaan',
+  email: 'mohammed.rayaan@nexora.edu',
   role: 'student',
   department: 'Computer Science & AI',
   community: 'Nexora Institute of Technology',

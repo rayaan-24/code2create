@@ -75,35 +75,37 @@ export default function PeoplePage() {
   };
 
   return (
-    <AppShell title="People Directory">
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <AppShell title="Campus Directory">
+      <div className="p-3.5 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-5 sm:space-y-8">
         {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-white flex items-center gap-2">
-              <Users className="w-6 h-6 text-sky-400" />
+            <h2 className="text-xl sm:text-2xl font-extrabold text-[#111111] flex items-center gap-2">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-[#EB4D6E]" />
               <span>Campus & Community Directory</span>
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            <p className="text-xs sm:text-sm text-[#5C4B52] font-medium mt-1">
               Find faculty, departmental officers, academic advisors, and administrative staff.
             </p>
           </div>
 
-          <GlassBadge variant="primary" size="md">
-            {people.length} Members Listed
-          </GlassBadge>
+          <div className="self-start sm:self-auto">
+            <GlassBadge variant="primary" size="md">
+              {people.length} Members Listed
+            </GlassBadge>
+          </div>
         </div>
 
         {/* Search & Filter Controls */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5C4B52]" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, role, office or department..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-sm text-white placeholder:text-slate-500"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white text-base sm:text-sm text-[#111111] font-medium placeholder:text-[#5C4B52] border border-[rgba(160,50,85,0.24)] shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#EB4D6E]/25"
             />
           </div>
 
@@ -111,10 +113,10 @@ export default function PeoplePage() {
             <select
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
-              className="px-3 py-2.5 rounded-xl glass-input text-xs text-white border border-white/10 bg-slate-900/80 focus:outline-none"
+              className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl text-sm sm:text-xs font-semibold text-[#111111] border border-[rgba(160,50,85,0.24)] bg-white shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#EB4D6E]/25 cursor-pointer"
             >
               {departments.map((dept) => (
-                <option key={dept} value={dept} className="bg-slate-900 text-white">
+                <option key={dept} value={dept} className="bg-white text-[#111111]">
                   {dept}
                 </option>
               ))}
@@ -149,11 +151,11 @@ export default function PeoplePage() {
               <GlassCard
                 key={person.id}
                 variant="interactive"
-                className="p-5 flex flex-col justify-between border-white/10"
+                className="p-5 flex flex-col justify-between border-[rgba(160,50,85,0.2)] bg-white/95 shadow-2xs hover:shadow-md hover:border-[#EB4D6E]"
               >
                 <div>
                   <div className="flex items-start gap-3.5 mb-3">
-                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-white/10 flex-shrink-0 flex items-center justify-center font-bold text-sky-400 text-lg">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-[#FFE2E8] border border-[rgba(160,50,85,0.25)] flex-shrink-0 flex items-center justify-center font-bold text-[#B82346] text-lg">
                       {person.avatar ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -167,7 +169,7 @@ export default function PeoplePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 mb-1">
-                        <h4 className="text-sm font-semibold text-white truncate">{person.name}</h4>
+                        <h4 className="text-sm font-bold text-[#111111] truncate">{person.name}</h4>
                         <GlassBadge
                           variant={availabilityBadgeVariants[person.availability]}
                           size="sm"
@@ -176,23 +178,23 @@ export default function PeoplePage() {
                           {person.availability}
                         </GlassBadge>
                       </div>
-                      <p className="text-xs text-sky-300 font-medium truncate">{person.role}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{person.department}</p>
+                      <p className="text-xs text-[#B82346] font-bold truncate">{person.role}</p>
+                      <p className="text-[11px] text-[#5C4B52] font-semibold truncate">{person.department}</p>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 py-2 text-xs text-slate-300 border-t border-white/5">
+                  <div className="space-y-1.5 py-2 text-xs text-[#2D2226] border-t border-[rgba(160,50,85,0.12)]">
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
-                      <span className="truncate">
+                      <MapPin className="w-3.5 h-3.5 text-[#EB4D6E] flex-shrink-0" />
+                      <span className="truncate font-medium">
                         {person.office} — {person.building}
                       </span>
                     </div>
 
                     {person.officeHours && (
                       <div className="flex items-center gap-2">
-                        <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                        <span className="truncate text-slate-400 text-[11px]">
+                        <Clock className="w-3.5 h-3.5 text-[#5C4B52] flex-shrink-0" />
+                        <span className="truncate text-[#5C4B52] text-[11px] font-medium">
                           {person.officeHours}
                         </span>
                       </div>
@@ -200,12 +202,12 @@ export default function PeoplePage() {
                   </div>
                 </div>
 
-                <div className="pt-3 mt-2 border-t border-white/10 flex items-center justify-between gap-2">
+                <div className="pt-3 mt-2 border-t border-[rgba(160,50,85,0.12)] flex items-center justify-between gap-2">
                   <GlassButton
                     variant="ghost"
                     size="sm"
                     onClick={() => setActivePerson(person)}
-                    className="text-xs px-2.5 text-slate-300 hover:text-white"
+                    className="text-xs px-2.5 text-[#111111] hover:text-[#000000] hover:bg-[#FFE2E8] font-bold"
                   >
                     <ExternalLink className="w-3.5 h-3.5 mr-1" />
                     View Profile
@@ -233,7 +235,7 @@ export default function PeoplePage() {
           {activePerson && (
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-800 border border-white/10">
+                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-[#FFE2E8] border border-[rgba(160,50,85,0.25)] flex-shrink-0">
                   {activePerson.avatar && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -244,34 +246,34 @@ export default function PeoplePage() {
                   )}
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-white">{activePerson.name}</h4>
-                  <p className="text-xs text-sky-400 font-medium">{activePerson.role}</p>
-                  <p className="text-xs text-slate-400">{activePerson.department}</p>
+                  <h4 className="text-base font-bold text-[#111111]">{activePerson.name}</h4>
+                  <p className="text-xs text-[#B82346] font-bold">{activePerson.role}</p>
+                  <p className="text-xs text-[#5C4B52] font-semibold">{activePerson.department}</p>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-900/50 border border-white/10 space-y-2 text-xs">
-                <div className="flex items-center gap-2 text-slate-300">
-                  <MapPin className="w-4 h-4 text-sky-400" />
+              <div className="p-3.5 rounded-xl bg-[#FFF0F4] border border-[rgba(160,50,85,0.2)] space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-[#111111] font-medium">
+                  <MapPin className="w-4 h-4 text-[#EB4D6E]" />
                   <span>
                     Office: {activePerson.office}, {activePerson.building}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-slate-300">
-                  <Mail className="w-4 h-4 text-sky-400" />
-                  <a href={`mailto:${activePerson.email}`} className="text-sky-300 hover:underline">
+                <div className="flex items-center gap-2 text-[#111111] font-medium">
+                  <Mail className="w-4 h-4 text-[#EB4D6E]" />
+                  <a href={`mailto:${activePerson.email}`} className="text-[#B82346] font-semibold hover:underline">
                     {activePerson.email}
                   </a>
                 </div>
                 {activePerson.phone && (
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <Phone className="w-4 h-4 text-sky-400" />
+                  <div className="flex items-center gap-2 text-[#111111] font-medium">
+                    <Phone className="w-4 h-4 text-[#EB4D6E]" />
                     <span>{activePerson.phone}</span>
                   </div>
                 )}
                 {activePerson.officeHours && (
-                  <div className="flex items-center gap-2 text-slate-300">
-                    <Clock className="w-4 h-4 text-sky-400" />
+                  <div className="flex items-center gap-2 text-[#111111] font-medium">
+                    <Clock className="w-4 h-4 text-[#EB4D6E]" />
                     <span>Office Hours: {activePerson.officeHours}</span>
                   </div>
                 )}

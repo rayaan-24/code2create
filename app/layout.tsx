@@ -13,16 +13,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NEXORA | Intelligent Closed-Community Platform",
+  title: "NEXORA — Intelligent Community Assistant",
   description:
-    "AI-powered intelligent assistant for closed communities such as universities, hospitals, companies, and residential organizations. Natural language procedures, directory, and indoor navigation.",
+    "AI-powered spatial and procedural assistant for closed institutional communities. Grounded knowledge, indoor wayfinding, and voice interaction.",
   keywords: [
     "AI assistant",
     "campus assistant",
     "indoor navigation",
     "community directory",
     "institutional knowledge",
-    "glassmorphism",
+    "spatial AI",
   ],
 };
 
@@ -34,9 +34,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased selection:bg-sky-500/30 selection:text-white`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#06080d] text-slate-100 font-sans">
+      <body className="min-h-full flex flex-col bg-[#FFF8FA] text-[#171717] font-sans selection:bg-[#F4728A]/20 selection:text-[#171717]">
         {children}
       </body>
     </html>

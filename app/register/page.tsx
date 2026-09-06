@@ -97,38 +97,38 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 py-12 relative overflow-hidden">
-      <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen flex items-center justify-center p-4 py-12 bg-[#FFF8FA] relative overflow-hidden">
+      <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-[#EB4D6E]/15 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-lg relative z-10">
         <div className="text-center mb-6">
           <Link href="/" className="inline-flex items-center gap-2.5 mb-2 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-[0_0_20px_rgba(56,189,248,0.35)] group-hover:scale-105 transition-transform">
-              <Sparkles className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#EB4D6E] to-[#D43154] flex items-center justify-center text-white shadow-[0_4px_16px_rgba(212,49,84,0.35)] group-hover:scale-105 transition-transform">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <span className="font-extrabold text-2xl tracking-wider text-white">NEXORA</span>
+            <span className="font-extrabold text-2xl tracking-wider text-[#111111]">NEXORA</span>
           </Link>
-          <h2 className="text-xl font-bold text-white">Join Your Community</h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <h2 className="text-xl font-extrabold text-[#111111]">Join Your Community</h2>
+          <p className="text-xs text-[#5C4B52] font-medium mt-1">
             Create your account to unlock intelligent institutional assistance
           </p>
         </div>
 
-        <GlassCard variant="elevated" className="p-6 sm:p-8 border-white/15 shadow-2xl">
+        <GlassCard variant="elevated" className="p-6 sm:p-8 bg-white/95 border-2 border-[rgba(160,50,85,0.22)] shadow-xl shadow-rose-950/5">
           {isSuccess ? (
             <div className="text-center py-8 space-y-3">
-              <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+              <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center mx-auto shadow-sm">
                 <CheckCircle className="w-8 h-8" />
               </div>
-              <h3 className="text-lg font-bold text-white">Account Created Successfully</h3>
-              <p className="text-xs text-slate-300">
+              <h3 className="text-lg font-bold text-[#111111]">Account Created Successfully</h3>
+              <p className="text-xs text-[#5C4B52] font-medium">
                 Initializing your personalized community workspace...
               </p>
             </div>
           ) : (
             <>
               {errorMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs">
+                <div className="mb-4 p-3 rounded-xl bg-rose-100 border border-rose-300 text-rose-950 text-xs font-semibold">
                   {errorMsg}
                 </div>
               )}
@@ -160,7 +160,7 @@ export default function RegisterPage() {
 
               {/* Role Selection */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-slate-300">
+                <label className="block text-xs font-bold text-[#111111]">
                   Select Your Community Role
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -169,20 +169,20 @@ export default function RegisterPage() {
                       key={role.id}
                       type="button"
                       onClick={() => setValue('role', role.id as any)}
-                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                         selectedRole === role.id
-                          ? 'bg-sky-500/20 border-sky-400 text-white shadow-[0_0_12px_rgba(56,189,248,0.2)]'
-                          : 'bg-slate-900/50 border-white/10 text-slate-400 hover:border-white/20'
+                          ? 'bg-[#FFE2E8] border-2 border-[#EB4D6E] text-[#B82346] shadow-xs'
+                          : 'bg-white border border-[rgba(160,50,85,0.2)] text-[#111111] hover:border-[#EB4D6E] hover:bg-[#FFF8FA]'
                       }`}
                     >
-                      <span className="block text-xs font-semibold">{role.label}</span>
-                      <span className="block text-[10px] text-slate-400 mt-0.5 truncate">
+                      <span className="block text-xs font-bold">{role.label}</span>
+                      <span className="block text-[10px] text-[#5C4B52] font-medium mt-0.5 truncate">
                         {role.description}
                       </span>
                     </button>
                   ))}
                 </div>
-                {errors.role && <p className="text-xs text-red-400 mt-1">{errors.role.message}</p>}
+                {errors.role && <p className="text-xs font-semibold text-red-600 mt-1">{errors.role.message}</p>}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -204,7 +204,7 @@ export default function RegisterPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="hover:text-white transition-colors"
+                      className="hover:text-[#000000] text-[#5C4B52] transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -228,9 +228,9 @@ export default function RegisterPage() {
             </>
           )}
 
-          <div className="mt-6 text-center text-xs text-slate-400">
+          <div className="mt-6 text-center text-xs text-[#5C4B52] font-medium">
             Already have an account?{' '}
-            <Link href="/login" className="text-sky-400 hover:text-sky-300 font-semibold hover:underline">
+            <Link href="/login" className="text-[#B82346] hover:text-[#8E1733] font-bold hover:underline">
               Sign in
             </Link>
           </div>

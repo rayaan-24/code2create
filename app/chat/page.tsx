@@ -22,11 +22,14 @@ import {
 import { chatApi } from '@/lib/api/chat';
 import { Conversation, ChatMessage } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
+import { useMobileMenu } from '@/components/layout/AppShell';
+import { Menu } from 'lucide-react';
 
 function ChatContent() {
   const searchParams = useSearchParams();
   const initialId = searchParams.get('id');
   const initialPrompt = searchParams.get('prompt');
+  const { openMobileMenu } = useMobileMenu();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string>('conv_1');
@@ -35,16 +38,28 @@ function ChatContent() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Default sidebar open only on desktop
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      setSidebarOpen(true);
+    }
+  }, []);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = (smooth = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom(true);
   }, [messages, isAiThinking]);
 
   // Load conversations on mount
@@ -130,6 +145,9 @@ function ChatContent() {
     setConversations([newConv, ...conversations]);
     setActiveConvId(newConv.id);
     setMessages([]);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
   };
 
   const filteredConversations = conversations.filter((c) =>
@@ -139,24 +157,33 @@ function ChatContent() {
   const activeConversation = conversations.find((c) => c.id === activeConvId);
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
-      {/* Chat History Sidebar */}
+    <div className="flex h-full w-full overflow-hidden bg-[#FFF8FA] text-[#171717] relative">
+      {/* Mobile Backdrop for Chat History Drawer */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 lg:hidden animate-in fade-in"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Chat History Sidebar (Slide-over on mobile, inline panel on desktop) */}
       <div
         className={`${
-          sidebarOpen ? 'w-80' : 'w-0'
-        } flex-shrink-0 transition-all duration-300 ease-in-out border-r border-white/10 glass-panel overflow-hidden flex flex-col h-full`}
+          sidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full lg:translate-x-0'
+        } fixed lg:static inset-y-0 left-0 z-40 lg:z-auto flex-shrink-0 transition-all duration-300 ease-in-out border-r-2 border-[rgba(160,50,85,0.18)] bg-white/95 lg:bg-white/80 backdrop-blur-xl overflow-hidden flex flex-col h-full shadow-2xl lg:shadow-none`}
       >
-        <div className="p-4 border-b border-white/10 space-y-3">
+        <div className="p-4 border-b border-[rgba(160,50,85,0.14)] space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-sky-400" />
-              <h2 className="text-sm font-bold text-white">Conversations</h2>
+              <MessageSquare className="w-4 h-4 text-[#EB4D6E]" />
+              <h2 className="text-sm font-black text-[#111111]">Conversations</h2>
             </div>
             <GlassButton
               variant="primary"
               size="sm"
               onClick={handleCreateNewChat}
-              className="text-xs px-2.5 py-1 h-8"
+              className="text-xs px-2.5 py-1 h-8 shadow-xs"
             >
               <Plus className="w-3.5 h-3.5 mr-1" />
               New
@@ -165,41 +192,46 @@ function ChatContent() {
 
           {/* Search conversations */}
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#5C4B52]" />
             <input
               type="text"
               value={convSearch}
               onChange={(e) => setConvSearch(e.target.value)}
               placeholder="Search history..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl glass-input placeholder:text-slate-500"
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-white border border-[rgba(160,50,85,0.24)] placeholder:text-[#5C4B52] text-[#111111] font-medium focus:outline-none focus:ring-2 focus:ring-[#EB4D6E]/20"
             />
           </div>
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1.5">
           {filteredConversations.length === 0 ? (
-            <p className="text-center py-6 text-xs text-slate-500">No conversations found.</p>
+            <p className="text-center py-8 text-xs text-[#5C4B52] font-semibold">No conversations found.</p>
           ) : (
             filteredConversations.map((conv) => {
               const isActive = conv.id === activeConvId;
               return (
                 <button
                   key={conv.id}
-                  onClick={() => setActiveConvId(conv.id)}
-                  className={`w-full p-3 rounded-xl text-left transition-all text-xs ${
+                  onClick={() => {
+                    setActiveConvId(conv.id);
+                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                      setSidebarOpen(false);
+                    }
+                  }}
+                  className={`w-full p-3 rounded-xl text-left transition-all text-xs cursor-pointer ${
                     isActive
-                      ? 'bg-sky-500/15 border border-sky-400/30 text-white shadow-sm'
-                      : 'hover:bg-white/5 text-slate-300 border border-transparent'
+                      ? 'bg-[#FFE2E8] border-2 border-[#EB4D6E] text-[#B82346] font-bold shadow-xs'
+                      : 'hover:bg-[#FFF0F4] text-[#111111] border border-transparent font-medium'
                   }`}
                 >
                   <div className="flex justify-between items-center mb-1">
-                    <span className="font-semibold truncate max-w-[170px] text-white">
+                    <span className="font-extrabold truncate max-w-[170px] text-[#111111]">
                       {conv.title}
                     </span>
-                    <span className="text-[10px] text-slate-500">{formatDate(conv.updatedAt)}</span>
+                    <span className="text-[10px] text-[#5C4B52] font-bold">{formatDate(conv.updatedAt)}</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 truncate">{conv.lastMessage}</p>
+                  <p className="text-[11px] text-[#2D2226] font-medium truncate">{conv.lastMessage}</p>
                 </button>
               );
             })
@@ -208,16 +240,28 @@ function ChatContent() {
       </div>
 
       {/* Main Conversation Window */}
-      <div className="flex-1 flex flex-col h-full min-w-0 bg-[#06080d]/60 relative">
+      <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 bg-[#FFF8FA] relative overflow-hidden">
         {/* Chat Header */}
-        <div className="h-14 px-4 glass-panel border-b border-white/10 flex items-center justify-between z-10 flex-shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="h-14 px-3 sm:px-4 bg-white/90 backdrop-blur-xl border-b border-[rgba(160,50,85,0.18)] flex items-center justify-between z-10 flex-shrink-0 select-none shadow-2xs">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Global App Mobile Menu Hamburger Button */}
+            <button
+              type="button"
+              onClick={openMobileMenu}
+              className="lg:hidden p-2 rounded-xl text-[#5C4B52] hover:text-[#111111] hover:bg-[#FFE2E8] transition-colors cursor-pointer shrink-0"
+              title="Open Navigation Menu"
+              aria-label="Open Navigation Menu"
+            >
+              <Menu className="w-5 h-5 text-[#EB4D6E]" />
+            </button>
+
+            {/* Chat History Sidebar Toggle Button */}
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
-              title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-              aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+              className="p-1.5 sm:p-2 rounded-xl text-[#3D2D33] hover:text-[#000000] hover:bg-[#FFE2E8] transition-colors cursor-pointer shrink-0"
+              title={sidebarOpen ? 'Collapse history' : 'Expand history'}
+              aria-label={sidebarOpen ? 'Collapse history' : 'Expand history'}
             >
               {sidebarOpen ? (
                 <PanelLeftClose className="w-4 h-4" />
@@ -226,25 +270,28 @@ function ChatContent() {
               )}
             </button>
 
-            <div>
-              <h2 className="text-xs sm:text-sm font-bold text-white truncate max-w-[200px] sm:max-w-md">
+            <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm font-black text-[#111111] truncate max-w-[150px] sm:max-w-md">
                 {activeConversation?.title || 'Community AI Assistant'}
               </h2>
-              <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Verified Knowledge Base Connected</span>
+              <div className="flex items-center gap-1.5 text-[10px] text-[#B82346] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#EB4D6E] animate-pulse shrink-0" />
+                <span className="truncate">Verified Grounding</span>
               </div>
             </div>
           </div>
 
-          <GlassBadge variant="outline" size="sm" className="hidden sm:inline-flex">
-            <Bot className="w-3 h-3 text-sky-400" />
-            <span>NEXORA 1.0</span>
+          <GlassBadge variant="primary" size="sm" className="hidden sm:inline-flex shrink-0">
+            <Bot className="w-3 h-3 text-[#B82346]" />
+            <span>NEXORA AI</span>
           </GlassBadge>
         </div>
 
         {/* Messages Feed Area */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-4"
+        >
           {error && <ErrorBanner message={error} />}
 
           {isLoadingMessages ? (
@@ -252,13 +299,37 @@ function ChatContent() {
               <LoadingSkeleton count={4} />
             </div>
           ) : messages.length === 0 ? (
-            <EmptyState
-              icon={Sparkles}
-              title="How can NEXORA assist you?"
-              description="Ask any question about procedures, faculty, labs, classroom locations, or services. NEXORA reasons over verified community data."
-              actionLabel="Try Sample Query"
-              onAction={() => handleSendMessage('Where is the Quantum Information Lab?')}
-            />
+            <div className="max-w-2xl mx-auto py-12 px-4 text-center space-y-6">
+              <div className="w-14 h-14 mx-auto rounded-3xl bg-gradient-to-tr from-[#EB4D6E] to-[#D43154] flex items-center justify-center text-white shadow-[0_8px_24px_rgba(212,49,84,0.35)]">
+                <Sparkles className="w-7 h-7" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl sm:text-3xl font-black text-[#111111] tracking-tight">
+                  Tell me what you need.
+                </h3>
+                <p className="text-xs sm:text-sm text-[#2D2226] font-medium max-w-md mx-auto">
+                  Ask about campus procedures, office hours, classroom locations, or navigation routes.
+                </p>
+              </div>
+
+              {/* Suggested Prompt Pills */}
+              <div className="flex flex-wrap justify-center gap-2 pt-2">
+                {[
+                  'I lost my student ID card. What should I do?',
+                  'Where is the Student Services Center?',
+                  'Find faculty in the Computer Science department',
+                  'What documents are needed for an Indian passport?',
+                ].map((prompt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSendMessage(prompt)}
+                    className="text-xs font-semibold px-4 py-2.5 rounded-full bg-white border-2 border-[rgba(160,50,85,0.22)] text-[#111111] hover:border-[#EB4D6E] hover:bg-[#FFE2E8] transition-all cursor-pointer shadow-2xs hover:shadow-xs text-left"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : (
             <div className="max-w-4xl mx-auto">
               {messages.map((msg) => (
@@ -268,22 +339,21 @@ function ChatContent() {
               {/* AI Thinking Indicator */}
               {isAiThinking && (
                 <div className="flex gap-3 my-4">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-[#FFE2E8] border border-[#EB4D6E]/40 text-[#B82346] flex items-center justify-center flex-shrink-0">
                     <Sparkles className="w-4 h-4 animate-spin" />
                   </div>
-                  <div className="glass-panel p-4 rounded-2xl rounded-tl-none border-white/10 text-xs text-slate-300 flex items-center gap-2">
-                    <span className="inline-block w-2 h-2 rounded-full bg-sky-400 animate-ping" />
-                    <span>NEXORA is retrieving and reasoning over verified community data...</span>
+                  <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-[rgba(160,50,85,0.2)] text-xs text-[#111111] font-semibold flex items-center gap-2 shadow-xs">
+                    <span className="inline-block w-2 h-2 rounded-full bg-[#EB4D6E] animate-ping" />
+                    <span>NEXORA is synthesizing verified community guidelines...</span>
                   </div>
                 </div>
               )}
-              <div ref={messagesEndRef} />
             </div>
           )}
         </div>
 
         {/* Bottom Chat Input Form */}
-        <div className="flex-shrink-0 pt-2 bg-gradient-to-t from-[#06080d] via-[#06080d]/80 to-transparent">
+        <div className="flex-shrink-0 pt-2 pb-3 bg-[#FFF8FA] border-t border-[rgba(160,50,85,0.12)]">
           <ChatInput onSendMessage={handleSendMessage} isLoading={isAiThinking} />
         </div>
       </div>

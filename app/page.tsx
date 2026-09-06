@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -17,71 +17,82 @@ import {
   Layers,
   Brain,
   Navigation as NavigationIcon,
+  ChevronRight,
 } from 'lucide-react';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { GlassBadge } from '@/components/ui/GlassBadge';
 import { GlassCard } from '@/components/ui/GlassCard';
 
 export default function LandingPage() {
-  const workflowSteps = [
-    { title: 'Understand', desc: 'Deep intent & context parsing', icon: Brain },
-    { title: 'Retrieve', desc: 'Verified community handbooks & databases', icon: Layers },
-    { title: 'Reason', desc: 'Synthesize exact procedures & rules', icon: Sparkles },
-    { title: 'Act', desc: 'Form completions & service requests', icon: CheckCircle2 },
-    { title: 'Navigate', desc: 'Turn-by-turn indoor wayfinding', icon: NavigationIcon },
-  ];
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  const features = [
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMousePos({
+      x: (e.clientX - rect.left) / rect.width - 0.5,
+      y: (e.clientY - rect.top) / rect.height - 0.5,
+    });
+  };
+
+  const capabilities = [
     {
-      title: 'Ask Naturally',
-      desc: 'Speak or type in plain natural language. No rigid keywords, no confusing multi-level menus, and no category guessing.',
-      icon: Sparkles,
-      tag: 'Intuitive AI',
+      step: '01',
+      title: 'Understands You',
+      headline: 'Speak or type naturally.',
+      desc: 'No rigid keywords, no nested menu mazes. NEXORA parses intent, multi-turn context, and spatial references seamlessly.',
+      badge: 'Intent Intelligence',
     },
     {
-      title: 'Get Verified Answers',
-      desc: 'Ground truth answers sourced strictly from university & enterprise handbooks, administrative gazettes, and official policies.',
-      icon: ShieldCheck,
-      tag: 'Zero Hallucination',
+      step: '02',
+      title: 'Verifies the Truth',
+      headline: 'Strictly grounded knowledge.',
+      desc: 'Every policy, fee, and requirement is validated against verified institutional records. Zero confident hallucinations.',
+      badge: 'Zero Hallucination',
     },
     {
-      title: 'Find People & Services',
-      desc: 'Instantly locate faculty, administrative officers, labs, clinics, student wellness facilities, and registrar counters.',
-      icon: Users,
-      tag: 'Unified Directory',
+      step: '03',
+      title: 'Guides You Indoors',
+      headline: 'Turn-by-turn wayfinding.',
+      desc: 'From where you stand to the exact room door. Multi-floor A* pathfinding with accessibility modes across towers and floors.',
+      badge: 'Indoor Spatial A*',
     },
     {
-      title: 'Navigate Physical Spaces',
-      desc: 'Direct turn-by-turn indoor routing across towers, floors, and classrooms with ETA and accessibility routing.',
-      icon: MapPin,
-      tag: 'Indoor Wayfinding',
-    },
-    {
-      title: 'Voice-First Interaction',
-      desc: 'Hands-free conversational assistant powered by low-latency neural speech synthesis and voice capture.',
-      icon: Mic,
-      tag: 'Neural Voice',
-    },
-    {
-      title: 'Search Beyond Community',
-      desc: 'Intelligently falls back to curated external web search when local domain knowledge needs broader validation.',
-      icon: Search,
-      tag: 'Hybrid Search',
+      step: '04',
+      title: 'Speaks with Voice',
+      headline: 'Neural speech intelligence.',
+      desc: 'Hands-free voice mode powered by high-fidelity speech synthesis and conversational context memory.',
+      badge: 'ElevenLabs Voice',
     },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col selection:bg-sky-500/30 selection:text-white">
-      {/* Top Glass Navbar */}
-      <nav className="sticky top-0 z-50 px-6 py-4 glass-panel border-b border-white/10 flex items-center justify-between">
+    <div 
+      onMouseMove={handleMouseMove}
+      className="min-h-screen flex flex-col bg-[#FFF8FA] text-[#171717] selection:bg-[#F4728A]/20 selection:text-[#171717] relative overflow-hidden"
+    >
+      {/* Dynamic Ambient Spatial Orbs */}
+      <div 
+        className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full bg-gradient-to-b from-[#F4728A]/20 via-[#FF8FA3]/10 to-transparent blur-3xl transition-transform duration-700 ease-out"
+        style={{
+          transform: `translate(calc(-50% + ${mousePos.x * 40}px), ${mousePos.y * 30}px)`,
+        }}
+        aria-hidden="true"
+      />
+      <div 
+        className="pointer-events-none absolute top-[600px] -right-40 w-[600px] h-[600px] rounded-full bg-gradient-to-tl from-[#FBC5D0]/30 to-transparent blur-3xl"
+        aria-hidden="true"
+      />
+
+      {/* Top Floating Glass Navbar */}
+      <nav className="sticky top-0 z-50 px-6 py-4 bg-white/70 backdrop-blur-xl border-b border-[rgba(180,80,110,0.12)] flex items-center justify-between transition-all">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-[0_0_20px_rgba(56,189,248,0.35)]">
-            <Sparkles className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#F4728A] to-[#E85D77] flex items-center justify-center text-white shadow-[0_4px_16px_rgba(244,114,138,0.3)]">
+            <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <span className="font-extrabold text-xl tracking-wider text-white">NEXORA</span>
-            <span className="hidden sm:inline-block ml-2 text-[10px] text-sky-400 font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-400/20">
-              Closed-Community OS
+            <span className="font-extrabold text-xl tracking-wider text-[#171717]">NEXORA</span>
+            <span className="hidden sm:inline-block ml-2 text-[10px] text-[#E85D77] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#FFEBF0] border border-[#F4728A]/25">
+              Community AI
             </span>
           </div>
         </div>
@@ -100,97 +111,100 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative px-6 pt-20 pb-16 md:pt-28 md:pb-24 max-w-7xl mx-auto flex flex-col items-center text-center">
-        <GlassBadge variant="primary" size="md" className="mb-6 shadow-[0_0_20px_rgba(56,189,248,0.2)]">
-          <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-          <span>Next-Generation Intelligent Campus & Enterprise Assistant</span>
-        </GlassBadge>
+      {/* Hero Section — Lusion-Inspired Spatial Composition */}
+      <section className="relative px-6 pt-24 pb-20 md:pt-36 md:pb-28 max-w-6xl mx-auto flex flex-col items-center text-center z-10">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FFEBF0] border border-[#F4728A]/30 text-xs font-semibold text-[#E85D77] mb-8 shadow-[0_2px_12px_rgba(244,114,138,0.1)]">
+          <Sparkles className="w-3.5 h-3.5 text-[#F4728A]" />
+          <span>Spatial & Grounded Community Operating System</span>
+        </div>
 
-        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white max-w-5xl leading-[1.1]">
-          Your Community. <br className="hidden sm:block" />
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-sky-400 via-indigo-300 to-purple-400">
-            One Intelligent Interface.
+        <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight text-[#111111] max-w-5xl leading-[1.05]">
+          Your community, <br />
+          <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#EB4D6E] via-[#D43154] to-[#B82346]">
+            understood.
           </span>
         </h1>
 
-        <p className="mt-6 text-base sm:text-xl text-slate-300 max-w-2xl font-light leading-relaxed">
-          Understand your community. Find the right information, people and places. Get things done with zero friction.
+        <p className="mt-8 text-lg sm:text-2xl text-[#2D2226] max-w-2xl font-medium leading-relaxed">
+          Ask what you need in plain natural language. NEXORA retrieves verified truth, answers with voice, and navigates you to the room door.
         </p>
 
-        <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
+        <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
           <Link href="/chat">
-            <GlassButton size="lg" variant="primary" className="shadow-[0_0_30px_rgba(56,189,248,0.3)]">
-              <span>Start Conversation</span>
+            <GlassButton size="lg" variant="primary" className="text-base px-8 py-4 shadow-[0_8px_30px_rgba(212,49,84,0.35)]">
+              <span>Enter Workspace</span>
               <ArrowRight className="w-4 h-4 ml-2" />
             </GlassButton>
           </Link>
           <Link href="/dashboard">
-            <GlassButton size="lg" variant="secondary">
-              <Compass className="w-4 h-4 mr-2 text-sky-400" />
-              <span>Explore NEXORA</span>
+            <GlassButton size="lg" variant="secondary" className="text-base px-7 py-4">
+              <Compass className="w-4 h-4 mr-2 text-[#EB4D6E]" />
+              <span>Explore Portal</span>
             </GlassButton>
           </Link>
         </div>
 
-        {/* Hero Interactive Glass Assistant Preview */}
-        <div className="w-full max-w-4xl mt-16 p-3 sm:p-4 rounded-3xl glass-panel-elevated border border-white/20 shadow-2xl relative">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 text-xs text-slate-400">
+        {/* Tactile Spatial Interface Preview */}
+        <div className="w-full max-w-4xl mt-20 p-4 sm:p-6 rounded-3xl bg-white/95 border-2 border-[rgba(160,50,85,0.22)] shadow-[0_24px_70px_-15px_rgba(180,50,80,0.18)] text-left relative">
+          <div className="flex items-center justify-between pb-3 border-b border-[rgba(160,50,85,0.14)] text-xs text-[#3D2D33]">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-              <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-              <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-              <span className="ml-2 font-mono text-[11px] text-slate-300">nexora-intelligent-assistant.v1</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span className="ml-2 font-mono text-[11px] text-[#111111] font-bold">nexora-live-telemetry</span>
             </div>
-            <GlassBadge variant="success" size="sm">
-              Verified Knowledge Node
+            <GlassBadge variant="primary" size="sm">
+              ✓ Verified Community Source
             </GlassBadge>
           </div>
 
-          <div className="p-4 sm:p-6 text-left space-y-4">
-            {/* User message mockup */}
+          <div className="pt-4 space-y-4">
+            {/* User message */}
             <div className="flex justify-end">
-              <div className="p-3.5 rounded-2xl rounded-tr-none bg-sky-600 text-white text-xs sm:text-sm max-w-lg shadow-md border border-sky-400/30">
+              <div className="p-3.5 rounded-2xl rounded-tr-none bg-gradient-to-r from-[#EB4D6E] to-[#D43154] text-white font-medium text-xs sm:text-sm max-w-lg shadow-[0_4px_16px_rgba(212,49,84,0.3)]">
                 I lost my student ID card this morning. What should I do and where do I go?
               </div>
             </div>
 
-            {/* AI Response Card mockup */}
+            {/* AI Grounded Response */}
             <div className="flex justify-start">
-              <div className="p-4 rounded-2xl rounded-tl-none glass-card max-w-2xl border-sky-400/30 text-xs sm:text-sm text-slate-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <div className="p-5 rounded-2xl rounded-tl-none bg-white border border-[rgba(160,50,85,0.2)] max-w-2xl text-xs sm:text-sm text-[#111111] shadow-xs space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-[#FFE2E8] flex items-center justify-center text-[#B82346]">
                     <Sparkles className="w-3.5 h-3.5" />
                   </div>
-                  <span className="font-semibold text-white">NEXORA Response</span>
-                  <GlassBadge variant="primary" size="sm">
+                  <span className="font-extrabold text-[#111111]">NEXORA Intelligence</span>
+                  <GlassBadge variant="default" size="sm">
                     Verified Procedure
                   </GlassBadge>
                 </div>
-                <p className="text-slate-300 mb-3 text-xs leading-relaxed">
-                  I cross-referenced the official Campus Registry Handbook. Here is the verified procedure to replace your smart RFID card today:
+                
+                <p className="text-[#2D2226] text-xs sm:text-sm leading-relaxed font-medium">
+                  I verified the official Campus Registry Handbook. Here is the verified procedure to replace your smart RFID card:
                 </p>
 
-                {/* Sub-card */}
-                <div className="p-3.5 rounded-xl bg-slate-900/60 border border-white/10 space-y-2">
+                {/* Spatial Procedure Breakdown */}
+                <div className="p-3.5 rounded-xl bg-[#FFF0F4] border border-[rgba(160,50,85,0.2)] space-y-2">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-white">Student Services Center</span>
-                    <span className="text-emerald-400 font-medium">Open until 4:30 PM</span>
+                    <span className="font-bold text-[#111111]">Student Services Center</span>
+                    <span className="text-emerald-950 font-bold px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-[10px]">
+                      Open until 4:30 PM
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <Building2 className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Silver Jubilee Tower (SJT) — Ground Floor — Room G12</span>
+                  <div className="flex items-center gap-2 text-xs text-[#2D2226] font-medium">
+                    <Building2 className="w-3.5 h-3.5 text-[#EB4D6E] shrink-0" />
+                    <span>Silver Jubilee Tower (SJT) &bull; Ground Floor &bull; Room G12</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <Clock className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Estimated processing: 15 minutes</span>
+                  <div className="flex items-center gap-2 text-xs text-[#2D2226] font-medium">
+                    <Clock className="w-3.5 h-3.5 text-[#EB4D6E] shrink-0" />
+                    <span>Required Fee: $15 (Payable online or at counter)</span>
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center gap-2">
+                <div className="flex items-center gap-2 pt-1">
                   <Link href="/map?dest=Student+Services+Center">
                     <GlassButton size="sm" variant="primary" className="text-xs">
-                      <NavigationIcon className="w-3 h-3 mr-1.5" />
+                      <NavigationIcon className="w-3.5 h-3.5 mr-1.5" />
                       Navigate There
                     </GlassButton>
                   </Link>
@@ -206,105 +220,61 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Workflow Visualization Section */}
-      <section className="py-16 px-6 max-w-7xl mx-auto w-full">
-        <div className="text-center mb-12">
-          <GlassBadge variant="outline" size="sm" className="mb-2">
-            Intelligent Engine Pipeline
-          </GlassBadge>
-          <h2 className="text-2xl sm:text-4xl font-bold text-white">
-            How NEXORA Solves Community Needs
+      {/* Progressive Storytelling Capabilities */}
+      <section className="px-6 py-24 max-w-6xl mx-auto z-10">
+        <div className="text-center mb-16 space-y-3">
+          <span className="text-xs font-bold uppercase tracking-widest text-[#B82346]">
+            Core Principles
+          </span>
+          <h2 className="text-3xl sm:text-5xl font-extrabold text-[#111111] tracking-tight">
+            How NEXORA operates
           </h2>
-          <p className="text-sm sm:text-base text-slate-400 mt-2">
-            A cohesive architecture combining language reasoning, indoor mapping, and institutional knowledge.
+          <p className="text-sm sm:text-base text-[#2D2226] max-w-xl mx-auto font-medium">
+            Grounded reasoning connecting people, physical spaces, and institutional truth.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {workflowSteps.map((step, idx) => {
-            const Icon = step.icon;
-            return (
-              <GlassCard key={idx} variant="default" className="text-center p-5 border-white/10">
-                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-400/20 text-sky-400 flex items-center justify-center mx-auto mb-3">
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div className="text-xs font-bold text-sky-300 mb-1 tracking-wider uppercase">
-                  Step 0{idx + 1}
-                </div>
-                <h3 className="text-base font-semibold text-white mb-1.5">{step.title}</h3>
-                <p className="text-xs text-slate-400">{step.desc}</p>
-              </GlassCard>
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {capabilities.map((cap, idx) => (
+            <GlassCard key={idx} variant="interactive" className="p-8 border-[rgba(160,50,85,0.2)] bg-white/95 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-bold text-[#B82346]">
+                  {cap.step}
+                </span>
+                <GlassBadge variant="primary" size="sm">
+                  {cap.badge}
+                </GlassBadge>
+              </div>
+              <h3 className="text-2xl font-bold text-[#111111] tracking-tight">
+                {cap.headline}
+              </h3>
+              <p className="text-sm text-[#2D2226] leading-relaxed font-normal">
+                {cap.desc}
+              </p>
+            </GlassCard>
+          ))}
         </div>
       </section>
 
-      {/* Features Grid Section */}
-      <section className="py-16 px-6 max-w-7xl mx-auto w-full">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl sm:text-4xl font-bold text-white">
-            Engineered for Modern Communities
+      {/* Call to Action Bar */}
+      <section className="px-6 py-20 bg-gradient-to-b from-transparent to-[#FFE2E8]/60 border-t border-[rgba(160,50,85,0.18)] text-center z-10">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <h2 className="text-3xl sm:text-5xl font-black text-[#111111] tracking-tight">
+            Ready to experience intelligent community life?
           </h2>
-          <p className="text-sm sm:text-base text-slate-400 mt-2 max-w-xl mx-auto">
-            Everything students, professors, hospital staff, and enterprise members need in one unified interface.
+          <p className="text-sm sm:text-base text-[#2D2226] font-medium">
+            Start conversations, navigate indoor spaces, and access verified institutional knowledge instantly.
           </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feat, idx) => {
-            const Icon = feat.icon;
-            return (
-              <GlassCard key={idx} variant="interactive" className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-400/30 text-sky-400 flex items-center justify-center shadow-[0_0_15px_rgba(56,189,248,0.15)]">
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <GlassBadge variant="outline" size="sm">
-                    {feat.tag}
-                  </GlassBadge>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">{feat.title}</h3>
-                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">{feat.desc}</p>
-              </GlassCard>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Bottom CTA Banner */}
-      <section className="py-16 px-6 max-w-5xl mx-auto w-full text-center">
-        <div className="p-8 sm:p-12 rounded-3xl glass-panel-elevated border-sky-400/30 shadow-2xl relative overflow-hidden">
-          <div className="relative z-10">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
-              Step Into Your Intelligent Community.
-            </h2>
-            <p className="text-sm sm:text-base text-slate-300 max-w-xl mx-auto mb-8">
-              Experience the future of campus and organizational intelligence with NEXORA.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Link href="/register">
-                <GlassButton size="lg" variant="primary">
-                  Create Account
-                </GlassButton>
-              </Link>
-              <Link href="/chat">
-                <GlassButton size="lg" variant="outline">
-                  Try AI Demo
-                </GlassButton>
-              </Link>
-            </div>
+          <div className="flex justify-center gap-4 pt-2">
+            <Link href="/chat">
+              <GlassButton size="lg" variant="primary">
+                <span>Launch Assistant</span>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </GlassButton>
+            </Link>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="mt-auto border-t border-white/10 py-8 px-6 text-center text-xs text-slate-500">
-        <div className="flex items-center justify-center gap-2 mb-2 font-semibold text-slate-400">
-          <Sparkles className="w-4 h-4 text-sky-400" />
-          <span>NEXORA Intelligent Community Platform</span>
-        </div>
-        <p>© 2026 NEXORA. All verified information belongs to respective institutional registries.</p>
-      </footer>
     </div>
   );
 }

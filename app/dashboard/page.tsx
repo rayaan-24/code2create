@@ -123,22 +123,30 @@ export default function DashboardPage() {
 
   return (
     <AppShell title="Dashboard">
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="p-3.5 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
         {/* Loading / Error States */}
         {error && <ErrorBanner message={error} onRetry={loadData} />}
 
         {/* Greeting & AI Prompt Box */}
-        <div className="relative p-6 sm:p-8 rounded-3xl glass-panel-elevated border-white/15 overflow-hidden">
+        <div className="relative p-4 sm:p-8 rounded-3xl bg-white/95 border border-[rgba(160,50,85,0.22)] shadow-xl shadow-rose-950/5 overflow-hidden backdrop-blur-xl">
+          {/* Ambient Glow Orb */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-rose-200/40 via-pink-100/20 to-transparent rounded-full blur-3xl pointer-events-none" />
+
           <div className="relative z-10 max-w-2xl">
-            <GlassBadge variant="primary" size="sm" className="mb-3">
-              <Sparkles className="w-3 h-3 text-sky-400" />
+            <GlassBadge variant="primary" size="sm" className="mb-3 bg-[#FFE8EE] text-[#B82346] border-[#EB4D6E]/40 font-bold">
+              <Sparkles className="w-3 h-3 text-[#EB4D6E]" />
               <span>NEXORA Intelligent Workspace</span>
             </GlassBadge>
 
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Good day, {user?.name.split(' ')[0] || 'Member'}.
+            <h2 className="text-xl sm:text-3xl font-extrabold text-[#111111] tracking-tight">
+              {new Date().getHours() < 12
+                ? 'Good morning'
+                : new Date().getHours() < 17
+                ? 'Good afternoon'
+                : 'Good evening'}
+              , {user?.name.split(' ')[0] || 'Member'}.
             </h2>
-            <p className="text-slate-300 text-sm mt-1 mb-6">
+            <p className="text-[#5C4B52] text-xs sm:text-sm mt-1.5 mb-5 sm:mb-6 font-medium">
               How can I help you today? Describe what you need in natural language.
             </p>
 
@@ -148,11 +156,11 @@ export default function DashboardPage() {
                 type="text"
                 value={quickQuery}
                 onChange={(e) => setQuickQuery(e.target.value)}
-                placeholder="e.g. Where do I submit hostel leave permission?"
-                className="w-full pl-4 pr-28 py-3.5 rounded-2xl glass-input text-sm text-white placeholder:text-slate-400 border border-white/20 shadow-inner"
+                placeholder="Where do I submit hostel leave permission?"
+                className="w-full pl-3.5 sm:pl-4 pr-24 sm:pr-28 py-3 sm:py-3.5 rounded-2xl bg-white text-base sm:text-sm text-[#111111] placeholder:text-[#5C4B52] border border-[rgba(160,50,85,0.26)] shadow-xs focus:outline-none focus:ring-2 focus:ring-[#EB4D6E]/30 focus:border-[#EB4D6E]"
               />
-              <div className="absolute right-2">
-                <GlassButton type="submit" size="sm" variant="primary" className="rounded-xl">
+              <div className="absolute right-1.5 sm:right-2">
+                <GlassButton type="submit" size="sm" variant="primary" className="rounded-xl px-3 sm:px-4 py-1.5 text-xs">
                   <span>Ask AI</span>
                   <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </GlassButton>
@@ -161,11 +169,11 @@ export default function DashboardPage() {
 
             {/* Try Asking Demo Discovery Chips */}
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#111111]">
+                <Sparkles className="w-3.5 h-3.5 text-[#EB4D6E]" />
                 <span>Try asking:</span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {[
                   'I lost my ID card. What should I do?',
                   'Where is Student Services?',
@@ -178,7 +186,7 @@ export default function DashboardPage() {
                   <button
                     key={i}
                     onClick={() => router.push(`/chat?prompt=${encodeURIComponent(prompt)}`)}
-                    className="px-3 py-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10 hover:border-cyan-400/40 transition-all text-xs text-left"
+                    className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white hover:bg-[#FFE8EE] text-[#3D2D33] hover:text-[#111111] border border-[rgba(160,50,85,0.18)] hover:border-[#EB4D6E] shadow-2xs hover:shadow-xs transition-all text-xs text-left cursor-pointer font-medium"
                   >
                     {prompt}
                   </button>
@@ -190,33 +198,33 @@ export default function DashboardPage() {
 
         {/* Quick Action Grid */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Compass className="w-4 h-4 text-sky-400" />
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-sm sm:text-base font-bold text-[#111111] flex items-center gap-2">
+              <Compass className="w-4 h-4 text-[#EB4D6E]" />
               <span>Quick Action Launchpads</span>
             </h3>
-            <span className="text-xs text-slate-400">Direct shortcuts</span>
+            <span className="text-xs text-[#5C4B52] font-semibold">Direct shortcuts</span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
             {quickActionCards.map((card, idx) => {
               const Icon = card.icon;
               return (
                 <Link key={idx} href={card.href} className="group">
                   <GlassCard
                     variant="interactive"
-                    className="p-4 h-full flex flex-col justify-between text-left border-white/10"
+                    className="p-3 sm:p-4 h-full flex flex-col justify-between text-left border-[rgba(160,50,85,0.2)] bg-white/95 hover:bg-white hover:border-[#EB4D6E] shadow-2xs hover:shadow-md hover:shadow-rose-950/5 transition-all"
                   >
                     <div
-                      className={`w-9 h-9 rounded-xl ${card.bg} ${card.color} flex items-center justify-center mb-3`}
+                      className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#FFE8EE] text-[#B82346] flex items-center justify-center mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform"
                     >
                       <Icon className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-white group-hover:text-sky-300 transition-colors">
+                      <h4 className="text-xs font-bold text-[#111111] group-hover:text-[#B82346] transition-colors leading-snug">
                         {card.title}
                       </h4>
-                      <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">{card.desc}</p>
+                      <p className="text-[11px] text-[#5C4B52] mt-1 line-clamp-2 leading-tight">{card.desc}</p>
                     </div>
                   </GlassCard>
                 </Link>
@@ -226,17 +234,17 @@ export default function DashboardPage() {
         </div>
 
         {/* Main Grid: Recent Conversations & Community Pulse */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
           {/* Left 2 Cols: Recent Conversations */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-sky-400" />
+              <h3 className="text-sm sm:text-base font-bold text-[#111111] flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-[#EB4D6E]" />
                 <span>Recent Conversations</span>
               </h3>
               <Link
                 href="/chat"
-                className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1 font-medium"
+                className="text-xs text-[#B82346] hover:text-[#EB4D6E] flex items-center gap-1 font-bold"
               >
                 <span>Open Chat</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -246,31 +254,31 @@ export default function DashboardPage() {
             {isLoading ? (
               <LoadingSkeleton count={3} />
             ) : conversations.length === 0 ? (
-              <GlassCard className="p-8 text-center text-slate-400 text-xs">
+              <GlassCard className="p-8 text-center text-[#5C4B52] text-xs bg-white/90 border-[rgba(160,50,85,0.18)]">
                 No recent conversations found. Start a new query above.
               </GlassCard>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-2 sm:space-y-2.5">
                 {conversations.map((conv) => (
                   <Link key={conv.id} href={`/chat?id=${conv.id}`} className="block">
                     <GlassCard
                       variant="interactive"
-                      className="p-4 flex items-center justify-between border-white/10"
+                      className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-4 border-[rgba(160,50,85,0.18)] bg-white/95 hover:bg-white hover:border-[#EB4D6E] shadow-2xs"
                     >
-                      <div className="min-w-0 pr-4">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-xs font-semibold text-white truncate">{conv.title}</h4>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h4 className="text-xs font-bold text-[#111111] truncate">{conv.title}</h4>
                           {conv.tags?.map((t, i) => (
-                            <GlassBadge key={i} variant="primary" size="sm">
+                            <GlassBadge key={i} variant="primary" size="sm" className="bg-[#FFE8EE] text-[#B82346] border-[#EB4D6E]/40 font-bold">
                               {t}
                             </GlassBadge>
                           ))}
                         </div>
-                        <p className="text-xs text-slate-400 truncate max-w-md">{conv.lastMessage}</p>
+                        <p className="text-xs text-[#5C4B52] truncate">{conv.lastMessage}</p>
                       </div>
 
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-shrink-0">
-                        <Clock className="w-3 h-3" />
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#5C4B52] font-semibold flex-shrink-0">
+                        <Clock className="w-3 h-3 text-[#EB4D6E]" />
                         <span>{formatDate(conv.updatedAt)}</span>
                       </div>
                     </GlassCard>
@@ -281,38 +289,38 @@ export default function DashboardPage() {
           </div>
 
           {/* Right Col: Announcements & Campus Status */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Bell className="w-4 h-4 text-amber-400" />
+              <h3 className="text-sm sm:text-base font-bold text-[#111111] flex items-center gap-2">
+                <Bell className="w-4 h-4 text-[#EB4D6E]" />
                 <span>Community Notices</span>
               </h3>
-              <span className="text-[11px] text-slate-400">Verified</span>
+              <span className="text-[11px] text-[#5C4B52] font-bold">Verified</span>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5 sm:space-y-3">
               {announcements.map((ann) => (
-                <GlassCard key={ann.id} variant="default" className="p-4 border-white/10 space-y-2">
+                <GlassCard key={ann.id} variant="default" className="p-3.5 sm:p-4 border-[rgba(160,50,85,0.18)] bg-white/95 space-y-1.5 sm:space-y-2 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-amber-400">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-[#B82346]">
                       {ann.category}
                     </span>
-                    <span className="text-[10px] text-slate-500">{formatDate(ann.timestamp)}</span>
+                    <span className="text-[10px] text-[#5C4B52] font-semibold">{formatDate(ann.timestamp)}</span>
                   </div>
-                  <h4 className="text-xs font-semibold text-white leading-snug">{ann.title}</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed">{ann.message}</p>
+                  <h4 className="text-xs font-bold text-[#111111] leading-snug">{ann.title}</h4>
+                  <p className="text-xs text-[#3D2D33] leading-relaxed font-medium">{ann.message}</p>
                 </GlassCard>
               ))}
 
               {/* Quick Campus Beacon Card */}
               <GlassCard
                 variant="subtle"
-                className="p-4 border-emerald-500/20 bg-emerald-950/20 flex items-center gap-3"
+                className="p-3.5 sm:p-4 border-emerald-300 bg-emerald-50/90 flex items-center gap-3 shadow-2xs"
               >
-                <Building className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                <Building className="w-5 h-5 text-emerald-700 flex-shrink-0" />
                 <div className="text-xs">
-                  <span className="font-semibold text-emerald-300 block">Campus Systems Operational</span>
-                  <span className="text-slate-400 text-[11px]">
+                  <span className="font-bold text-emerald-950 block">Campus Systems Operational</span>
+                  <span className="text-emerald-800 text-[11px] font-medium">
                     All registry counters & labs functioning under regular schedule.
                   </span>
                 </div>

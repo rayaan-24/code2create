@@ -86,23 +86,23 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     <div className={`flex gap-3.5 my-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       {/* Avatar */}
       <div
-        className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 border ${
+        className={`w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 border transition-all ${
           isUser
-            ? 'bg-sky-500/20 border-sky-400/30 text-sky-300'
-            : 'bg-indigo-500/20 border-indigo-400/30 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
+            ? 'bg-[#111111] border-[#222222] text-white shadow-xs'
+            : 'bg-gradient-to-br from-[#EB4D6E] to-[#B82346] border-rose-300 text-white shadow-[0_4px_14px_rgba(235,77,110,0.35)]'
         }`}
       >
-        {isUser ? <UserIcon className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+        {isUser ? <UserIcon className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4 text-white" />}
       </div>
 
       {/* Message Content Body */}
-      <div className={`flex flex-col max-w-[85%] sm:max-w-2xl ${isUser ? 'items-end' : 'items-start'}`}>
-        <div className="flex items-center gap-2 mb-1 px-1 text-[11px] text-slate-400">
-          <span className="font-semibold text-slate-300">{isUser ? 'You' : 'NEXORA'}</span>
+      <div className={`flex flex-col max-w-[88%] sm:max-w-2xl ${isUser ? 'items-end' : 'items-start'}`}>
+        <div className="flex items-center gap-2 mb-1 px-1 text-[11px] text-[#5C4B52] font-semibold">
+          <span className="font-extrabold text-[#111111]">{isUser ? 'You' : 'NEXORA'}</span>
           <span>•</span>
           <span>{formatDate(message.timestamp)}</span>
           {message.isExternal && (
-            <span className="text-[10px] text-indigo-400 font-semibold flex items-center gap-1 ml-1">
+            <span className="text-[10px] text-[#B82346] font-bold flex items-center gap-1 ml-1 bg-[#FFE2E8] px-2 py-0.5 rounded-md border border-[#EB4D6E]/30">
               <Globe className="w-3 h-3" />
               External Web
             </span>
@@ -110,17 +110,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         </div>
 
         <div
-          className={`p-4 rounded-2xl text-sm leading-relaxed ${
+          className={`p-4 sm:p-5 rounded-2xl text-sm leading-relaxed ${
             isUser
-              ? 'bg-gradient-to-r from-sky-600/80 to-indigo-600/80 text-white rounded-tr-none shadow-[0_4px_20px_rgba(56,189,248,0.2)] border border-sky-400/30'
-              : 'glass-panel rounded-tl-none border-white/10 text-slate-200 shadow-lg'
+              ? 'bg-gradient-to-r from-[#EB4D6E] to-[#D43154] text-white rounded-tr-none shadow-[0_4px_16px_rgba(235,77,110,0.25)] border border-[#B82346]'
+              : 'bg-white rounded-tl-none border-2 border-[rgba(160,50,85,0.22)] text-[#111111] shadow-xs'
           }`}
         >
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <p className="whitespace-pre-wrap font-normal text-[#111111]">{message.content}</p>
 
           {/* Structured Data Components */}
           {message.structuredData && (
-            <div className="mt-2 space-y-2">
+            <div className="mt-3 space-y-2.5">
               {message.structuredData.type === 'procedure' && message.structuredData.procedure && (
                 <ProcedureCard procedure={message.structuredData.procedure} />
               )}
@@ -143,9 +143,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 
           {/* External Web Search Results */}
           {message.externalSources && message.externalSources.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-indigo-500/20 space-y-2">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-300 flex items-center gap-1.5">
-                <Globe className="w-3 h-3 text-indigo-400" />
+            <div className="mt-3.5 pt-3.5 border-t border-[rgba(160,50,85,0.2)] space-y-2">
+              <span className="text-[10px] uppercase font-black tracking-wider text-[#B82346] flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-[#EB4D6E]" />
                 Information from the Web (SerpAPI Verified)
               </span>
               <div className="space-y-2">
@@ -158,8 +158,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 
           {/* Verified Community Citation Sources */}
           {message.sources && message.sources.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/10 space-y-1.5">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+            <div className="mt-3.5 pt-3.5 border-t border-[rgba(160,50,85,0.2)] space-y-1.5">
+              <span className="text-[10px] uppercase font-black tracking-wider text-[#111111]">
                 Verified Community Sources
               </span>
               {message.sources.map((src) => (
@@ -171,15 +171,15 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 
         {/* Message Actions (For AI Responses) */}
         {!isUser && (
-          <div className="flex items-center gap-1 mt-1.5 px-1">
+          <div className="flex items-center gap-1.5 mt-2 px-1">
             <GlassButton
               variant="ghost"
               size="sm"
               onClick={handleCopy}
-              className="text-slate-400 hover:text-white text-xs px-2 py-1 h-7"
+              className="text-[#111111] hover:text-[#000000] hover:bg-[#FFE2E8] font-bold text-xs px-2.5 py-1 h-7 border border-[rgba(160,50,85,0.2)]"
               aria-label="Copy response"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600 mr-1" /> : <Copy className="w-3.5 h-3.5 mr-1 text-[#EB4D6E]" />}
               <span>{copied ? 'Copied' : 'Copy'}</span>
             </GlassButton>
 
@@ -187,17 +187,21 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
               variant="ghost"
               size="sm"
               onClick={handleSpeak}
-              className={`text-xs px-2 py-1 h-7 ${speaking ? 'text-sky-400 bg-sky-500/10' : 'text-slate-400 hover:text-white'}`}
+              className={`text-xs px-2.5 py-1 h-7 font-bold border transition-all ${
+                speaking
+                  ? 'text-[#B82346] bg-[#FFE2E8] border-[#EB4D6E]'
+                  : 'text-[#111111] hover:text-[#000000] hover:bg-[#FFE2E8] border-[rgba(160,50,85,0.2)]'
+              }`}
               aria-label="Speak response"
             >
               {speaking ? (
                 <>
-                  <VolumeX className="w-3.5 h-3.5 mr-1 text-sky-400 animate-pulse" />
-                  <span>Stop</span>
+                  <VolumeX className="w-3.5 h-3.5 mr-1 text-[#B82346] animate-pulse" />
+                  <span>Stop Speaking</span>
                 </>
               ) : (
                 <>
-                  <Volume2 className="w-3.5 h-3.5 mr-1" />
+                  <Volume2 className="w-3.5 h-3.5 mr-1 text-[#EB4D6E]" />
                   <span>Listen (ElevenLabs)</span>
                 </>
               )}

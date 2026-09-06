@@ -17,13 +17,13 @@ export const GlassInput = React.forwardRef<HTMLInputElement, GlassInputProps>(
     return (
       <div className="w-full space-y-1.5">
         {label && (
-          <label htmlFor={inputId} className="block text-xs font-medium text-slate-300">
+          <label htmlFor={inputId} className="block text-xs font-bold text-[#111111]">
             {label}
           </label>
         )}
         <div className="relative flex items-center">
           {leftIcon && (
-            <div className="absolute left-3.5 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute left-3.5 flex items-center pointer-events-none text-[#5C4B52]">
               {leftIcon}
             </div>
           )}
@@ -31,21 +31,21 @@ export const GlassInput = React.forwardRef<HTMLInputElement, GlassInputProps>(
             id={inputId}
             ref={ref}
             className={cn(
-              'w-full px-4 py-2.5 text-sm rounded-xl transition-all duration-200 glass-input',
+              'w-full px-4 py-2.5 text-base sm:text-sm rounded-xl transition-all duration-200 bg-white/95 border border-[rgba(160,50,85,0.24)] text-[#111111] placeholder:text-[#5C4B52] shadow-2xs focus:bg-white focus:border-[#EB4D6E] focus:ring-2 focus:ring-[#EB4D6E]/25',
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',
-              error && 'border-red-500/60 focus:border-red-500 focus:ring-red-500/20',
+              error && 'border-red-500 focus:border-red-600 focus:ring-red-400/20',
               className
             )}
             {...props}
           />
           {rightIcon && (
-            <div className="absolute right-3.5 flex items-center text-slate-400">
+            <div className="absolute right-3.5 flex items-center text-[#5C4B52]">
               {rightIcon}
             </div>
           )}
         </div>
-        {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+        {error && <p className="text-xs font-medium text-red-600 mt-1">{error}</p>}
       </div>
     );
   }

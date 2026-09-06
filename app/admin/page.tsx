@@ -188,26 +188,26 @@ export default function AdminPage() {
 
   return (
     <AppShell title="Administrative Governance Console">
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      <div className="p-3.5 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-5 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <GlassBadge variant="warning" size="sm">
                 Restricted Access
               </GlassBadge>
-              <span className="text-xs text-slate-400">Institutional Governance & Audit Console</span>
+              <span className="text-xs text-[#5C4B52] font-bold">Institutional Governance & Audit</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-white flex items-center gap-2">
-              <ShieldAlert className="w-6 h-6 text-amber-400" />
+            <h2 className="text-xl sm:text-2xl font-black text-[#111111] flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 sm:w-6 sm:h-6 text-[#EB4D6E]" />
               <span>NEXORA Knowledge & Operations Panel</span>
             </h2>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <GlassBadge variant="success" size="md">
-              <Activity className="w-3.5 h-3.5 mr-1" />
-              System Status: {metrics?.systemHealth || 'Optimal'}
+              <Activity className="w-3.5 h-3.5 mr-1 text-emerald-700" />
+              Status: {metrics?.systemHealth || 'Optimal'}
             </GlassBadge>
             <GlassButton
               variant="primary"
@@ -226,7 +226,7 @@ export default function AdminPage() {
                 );
                 setShowCreateModal(true);
               }}
-              className="bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs"
+              className="text-white font-bold text-xs shadow-xs"
             >
               <Plus className="w-4 h-4 mr-1" />
               Create Item
@@ -235,16 +235,16 @@ export default function AdminPage() {
         </div>
 
         {/* Sub-navigation Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-white/10">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b-2 border-[rgba(160,50,85,0.18)]">
           {adminTabs.map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                 activeTab === tab
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-[#FFE2E8] text-[#B82346] border-2 border-[#EB4D6E] shadow-xs'
+                  : 'text-[#5C4B52] hover:text-[#111111] hover:bg-[#FFE2E8]/60 border border-transparent'
               }`}
             >
               {tab}
@@ -267,48 +267,48 @@ export default function AdminPage() {
               <div className="space-y-6">
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <GlassCard variant="default" className="p-5 border-white/10">
-                    <div className="flex items-center justify-between text-sky-400 mb-2">
-                      <Database className="w-5 h-5" />
-                      <span className="text-xs font-semibold text-slate-400">Knowledge Items</span>
+                  <GlassCard variant="default" className="p-5 border-2 border-[rgba(160,50,85,0.22)] bg-white shadow-xs">
+                    <div className="flex items-center justify-between text-[#B82346] mb-2">
+                      <Database className="w-5 h-5 text-[#EB4D6E]" />
+                      <span className="text-xs font-bold text-[#5C4B52] uppercase tracking-wider">Knowledge Items</span>
                     </div>
-                    <div className="text-2xl font-extrabold text-white">
+                    <div className="text-2xl font-black text-[#111111]">
                       {metrics.totalKnowledgeItems.toLocaleString()}
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1">
+                    <p className="text-[11px] text-[#5C4B52] font-semibold mt-1">
                       Active documents, rules & procedures
                     </p>
                   </GlassCard>
 
-                  <GlassCard variant="default" className="p-5 border-emerald-500/20 bg-emerald-950/10">
-                    <div className="flex items-center justify-between text-emerald-400 mb-2">
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span className="text-xs font-semibold text-slate-400">Verified & Grounded</span>
+                  <GlassCard variant="default" className="p-5 border-2 border-emerald-200 bg-emerald-50/70 shadow-xs">
+                    <div className="flex items-center justify-between text-emerald-800 mb-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+                      <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Verified & Grounded</span>
                     </div>
-                    <div className="text-2xl font-extrabold text-white">
+                    <div className="text-2xl font-black text-[#111111]">
                       {metrics.verifiedItems.toLocaleString()}
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1">High confidence community truth</p>
+                    <p className="text-[11px] text-emerald-800 font-semibold mt-1">High confidence community truth</p>
                   </GlassCard>
 
-                  <GlassCard variant="default" className="p-5 border-amber-500/20 bg-amber-950/10">
-                    <div className="flex items-center justify-between text-amber-400 mb-2">
-                      <Clock className="w-5 h-5" />
-                      <span className="text-xs font-semibold text-slate-400">Pending Review</span>
+                  <GlassCard variant="default" className="p-5 border-2 border-amber-200 bg-amber-50/70 shadow-xs">
+                    <div className="flex items-center justify-between text-amber-800 mb-2">
+                      <Clock className="w-5 h-5 text-amber-700" />
+                      <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">Pending Review</span>
                     </div>
-                    <div className="text-2xl font-extrabold text-amber-300">
+                    <div className="text-2xl font-black text-amber-900">
                       {metrics.pendingReview}
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1">Awaiting registry sign-off</p>
+                    <p className="text-[11px] text-amber-800 font-semibold mt-1">Awaiting registry sign-off</p>
                   </GlassCard>
 
-                  <GlassCard variant="default" className="p-5 border-rose-500/20 bg-rose-950/10">
-                    <div className="flex items-center justify-between text-rose-400 mb-2">
-                      <AlertTriangle className="w-5 h-5" />
-                      <span className="text-xs font-semibold text-slate-400">Security & RBAC</span>
+                  <GlassCard variant="default" className="p-5 border-2 border-rose-200 bg-rose-50/70 shadow-xs">
+                    <div className="flex items-center justify-between text-[#B82346] mb-2">
+                      <AlertTriangle className="w-5 h-5 text-[#EB4D6E]" />
+                      <span className="text-xs font-bold text-[#B82346] uppercase tracking-wider">Security & RBAC</span>
                     </div>
-                    <div className="text-2xl font-extrabold text-white">Strict</div>
-                    <p className="text-[11px] text-slate-400 mt-1">Multi-tenant isolation enforced</p>
+                    <div className="text-2xl font-black text-[#111111]">Strict</div>
+                    <p className="text-[11px] text-[#5C4B52] font-semibold mt-1">Multi-tenant isolation enforced</p>
                   </GlassCard>
                 </div>
 
@@ -316,23 +316,23 @@ export default function AdminPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-amber-400" />
+                      <h3 className="text-base font-black text-[#111111] flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-[#EB4D6E]" />
                         <span>Pending Institutional Verifications</span>
                       </h3>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-[#5C4B52] font-medium">
                         Items submitted by departmental heads requiring publication authorization.
                       </p>
                     </div>
-                    <span className="text-xs text-slate-400 font-mono">
+                    <span className="text-xs text-[#111111] font-bold font-mono bg-[#FFE2E8] px-2.5 py-1 rounded-lg border border-[#EB4D6E]/30">
                       {queue.filter((q) => q.status === 'pending').length} Action Items
                     </span>
                   </div>
 
-                  <div className="rounded-2xl glass-panel border border-white/10 overflow-hidden shadow-xl">
+                  <div className="rounded-2xl bg-white border-2 border-[rgba(160,50,85,0.22)] overflow-hidden shadow-xs">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-900/80 border-b border-white/10 text-slate-400 uppercase font-semibold">
+                        <thead className="bg-[#FFF0F4] border-b-2 border-[rgba(160,50,85,0.18)] text-[#5C4B52] uppercase font-black tracking-wider">
                           <tr>
                             <th className="px-4 py-3.5">Title & Directive</th>
                             <th className="px-4 py-3.5">Category</th>
@@ -342,22 +342,22 @@ export default function AdminPage() {
                             <th className="px-4 py-3.5 text-right">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5 text-slate-300">
+                        <tbody className="divide-y divide-[rgba(160,50,85,0.12)] text-[#2D2226]">
                           {queue.map((item) => (
-                            <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
-                              <td className="px-4 py-3.5 font-medium text-white max-w-xs">
-                                <div className="truncate font-semibold">{item.title}</div>
+                            <tr key={item.id} className="hover:bg-[#FFF8FA] transition-colors">
+                              <td className="px-4 py-3.5 font-medium text-[#111111] max-w-xs">
+                                <div className="truncate font-bold text-[#111111]">{item.title}</div>
                                 {item.notes && (
-                                  <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                                  <div className="text-[11px] text-[#5C4B52] truncate mt-0.5 font-medium">
                                     {item.notes}
                                   </div>
                                 )}
                               </td>
-                              <td className="px-4 py-3.5 uppercase font-mono text-[10px] text-sky-400">
+                              <td className="px-4 py-3.5 uppercase font-mono text-[10px] text-[#B82346] font-bold">
                                 {item.type}
                               </td>
-                              <td className="px-4 py-3.5 text-slate-300">{item.submittedBy}</td>
-                              <td className="px-4 py-3.5 text-slate-400 font-mono text-[11px]">
+                              <td className="px-4 py-3.5 text-[#111111] font-semibold">{item.submittedBy}</td>
+                              <td className="px-4 py-3.5 text-[#5C4B52] font-mono text-[11px] font-medium">
                                 {formatDate(item.submittedAt)}
                               </td>
                               <td className="px-4 py-3.5">
@@ -381,7 +381,7 @@ export default function AdminPage() {
                                       variant="primary"
                                       size="sm"
                                       onClick={() => handleAction(item.id, 'approved', item.type)}
-                                      className="h-7 px-2 text-[11px] bg-emerald-600 hover:bg-emerald-500"
+                                      className="h-7 px-2 text-[11px] bg-emerald-600 hover:bg-emerald-700 font-bold"
                                     >
                                       <Check className="w-3 h-3 mr-1" />
                                       Approve
@@ -390,14 +390,14 @@ export default function AdminPage() {
                                       variant="danger"
                                       size="sm"
                                       onClick={() => handleAction(item.id, 'rejected', item.type)}
-                                      className="h-7 px-2 text-[11px]"
+                                      className="h-7 px-2 text-[11px] font-bold"
                                     >
                                       <X className="w-3 h-3 mr-1" />
                                       Reject
                                     </GlassButton>
                                   </div>
                                 ) : (
-                                  <span className="text-[11px] text-slate-500 italic">Resolved</span>
+                                  <span className="text-[11px] text-[#5C4B52] font-semibold italic">Resolved</span>
                                 )}
                               </td>
                             </tr>
@@ -414,20 +414,20 @@ export default function AdminPage() {
             {activeTab === 'Confusion Map' && (
               <div className="space-y-6">
                 {/* Header Banner */}
-                <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900/50 border border-purple-500/20 glass-panel">
+                <div className="p-6 rounded-2xl bg-gradient-to-r from-[#FFE2E8] via-[#FFF0F4] to-white border-2 border-[rgba(160,50,85,0.22)] shadow-xs">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <GlassBadge variant="default" size="sm" className="bg-purple-500/20 text-purple-300 border-purple-400/30">
-                          <Brain className="w-3.5 h-3.5 mr-1" />
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <GlassBadge variant="default" size="sm" className="bg-[#FFE2E8] text-[#B82346] border border-[#EB4D6E]/40 font-bold">
+                          <Brain className="w-3.5 h-3.5 mr-1 text-[#EB4D6E]" />
                           AI Semantic Intelligence
                         </GlassBadge>
-                        <span className="text-xs text-slate-400">Automated Community Telemetry</span>
+                        <span className="text-xs text-[#5C4B52] font-semibold">Automated Community Telemetry</span>
                       </div>
-                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      <h3 className="text-lg font-black text-[#111111] flex items-center gap-2">
                         <span>AI Confusion Map & Knowledge Gap Analytics</span>
                       </h3>
-                      <p className="text-xs text-slate-300 mt-1 max-w-2xl">
+                      <p className="text-xs text-[#2D2226] font-medium mt-1 max-w-2xl leading-relaxed">
                         Synthesizes multi-turn conversations to surface institutional bottlenecks, contradictory policies, unverified inquiries, and high-frequency navigation destinations.
                       </p>
                     </div>
@@ -442,13 +442,13 @@ export default function AdminPage() {
                 {/* Grid of Analytical Insights */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Procedural Friction & Ambiguity */}
-                  <GlassCard className="p-5 border-white/10 space-y-4">
+                  <GlassCard className="p-5 border-2 border-[rgba(160,50,85,0.22)] bg-white shadow-xs space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-400" />
-                        <h4 className="text-sm font-bold text-white">Procedural Friction & Ambiguity</h4>
+                        <AlertTriangle className="w-4 h-4 text-[#EB4D6E]" />
+                        <h4 className="text-sm font-black text-[#111111]">Procedural Friction & Ambiguity</h4>
                       </div>
-                      <span className="text-[11px] text-slate-400">High multi-turn hesitation</span>
+                      <span className="text-[11px] text-[#5C4B52] font-bold">High multi-turn hesitation</span>
                     </div>
 
                     <div className="space-y-3">
@@ -466,20 +466,20 @@ export default function AdminPage() {
                           recommendation: "Clarify that urgent requests require Dean's signature.",
                         },
                       ]).map((item: any, idx: number) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 space-y-2">
+                        <div key={idx} className="p-3.5 rounded-xl bg-[#FFF8FA] border border-[rgba(160,50,85,0.18)] space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-white">{item.title}</span>
-                            <span className="text-[11px] font-mono text-amber-400">Friction: {item.friction_score}%</span>
+                            <span className="text-xs font-bold text-[#111111]">{item.title}</span>
+                            <span className="text-[11px] font-mono font-bold text-[#B82346]">Friction: {item.friction_score}%</span>
                           </div>
-                          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div className="w-full h-2 bg-rose-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full"
+                              className="h-full bg-gradient-to-r from-[#EB4D6E] to-[#B82346] rounded-full"
                               style={{ width: `${item.friction_score}%` }}
                             />
                           </div>
-                          <p className="text-[11px] text-slate-300 italic">&ldquo;{item.primary_confusion}&rdquo;</p>
-                          <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium pt-1 border-t border-white/5">
-                            <Lightbulb className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <p className="text-[11px] text-[#2D2226] font-semibold italic">&ldquo;{item.primary_confusion}&rdquo;</p>
+                          <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 bg-emerald-50/80 p-2 rounded-lg border border-emerald-200 font-bold">
+                            <Lightbulb className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                             <span>Fix: {item.recommendation}</span>
                           </div>
                         </div>
@@ -488,13 +488,13 @@ export default function AdminPage() {
                   </GlassCard>
 
                   {/* Knowledge Gaps & Unanswered Questions */}
-                  <GlassCard className="p-5 border-white/10 space-y-4">
+                  <GlassCard className="p-5 border-2 border-[rgba(160,50,85,0.22)] bg-white shadow-xs space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <HelpCircle className="w-4 h-4 text-purple-400" />
-                        <h4 className="text-sm font-bold text-white">Unanswered Queries & Missing Policies</h4>
+                        <HelpCircle className="w-4 h-4 text-[#EB4D6E]" />
+                        <h4 className="text-sm font-black text-[#111111]">Unanswered Queries & Missing Policies</h4>
                       </div>
-                      <span className="text-[11px] text-slate-400">Zero-grounding encounters</span>
+                      <span className="text-[11px] text-[#5C4B52] font-bold">Zero-grounding encounters</span>
                     </div>
 
                     <div className="space-y-3">
@@ -503,15 +503,15 @@ export default function AdminPage() {
                         { query: 'How to register an external visitor vehicle overnight?', occurrences: 11, status: 'No Parking Guideline' },
                         { query: 'Can alumni access the digital library repository?', occurrences: 9, status: 'Under Review' },
                       ]).map((item: any, idx: number) => (
-                        <div key={idx} className="p-3 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between gap-3">
+                        <div key={idx} className="p-3 rounded-xl bg-[#FFF8FA] border border-[rgba(160,50,85,0.18)] flex items-center justify-between gap-3">
                           <div className="space-y-0.5">
-                            <p className="text-xs text-white font-medium">&ldquo;{item.query}&rdquo;</p>
-                            <span className="text-[10px] text-slate-400">{item.status} &bull; {item.occurrences} queries</span>
+                            <p className="text-xs text-[#111111] font-bold">&ldquo;{item.query}&rdquo;</p>
+                            <span className="text-[10px] text-[#5C4B52] font-semibold">{item.status} &bull; {item.occurrences} queries</span>
                           </div>
                           <GlassButton
                             variant="secondary"
                             size="sm"
-                            className="text-[10px] py-1 px-2 shrink-0 text-sky-300 border-sky-400/20"
+                            className="text-[10px] py-1 px-2.5 shrink-0 text-[#B82346] border border-[#EB4D6E]/30 font-bold hover:bg-[#FFE2E8]"
                             onClick={() => {
                               setCreateType('procedure');
                               setShowCreateModal(true);
@@ -528,13 +528,13 @@ export default function AdminPage() {
                 {/* Lower Row: Knowledge Action Items & Navigation Hotspots */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Knowledge Remediation Plan */}
-                  <GlassCard className="p-5 border-white/10 space-y-4">
+                  <GlassCard className="p-5 border-2 border-[rgba(160,50,85,0.22)] bg-white shadow-xs space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-sky-400" />
-                        <h4 className="text-sm font-bold text-white">Recommended Knowledge Updates</h4>
+                        <TrendingUp className="w-4 h-4 text-[#EB4D6E]" />
+                        <h4 className="text-sm font-black text-[#111111]">Recommended Knowledge Updates</h4>
                       </div>
-                      <span className="text-[11px] text-slate-400">High priority gaps</span>
+                      <span className="text-[11px] text-[#5C4B52] font-bold">High priority gaps</span>
                     </div>
 
                     <div className="space-y-3">
@@ -552,17 +552,17 @@ export default function AdminPage() {
                           suggested_action: 'Create Campus Security Parking Policy procedure.',
                         },
                       ]).map((gap: any, idx: number) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 space-y-1.5">
+                        <div key={idx} className="p-3.5 rounded-xl bg-[#FFF8FA] border border-[rgba(160,50,85,0.18)] space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-white">{gap.title}</span>
+                            <span className="text-xs font-bold text-[#111111]">{gap.title}</span>
                             <GlassBadge variant={gap.impact === 'HIGH' ? 'error' : 'warning'} size="sm">
                               {gap.impact} IMPACT
                             </GlassBadge>
                           </div>
-                          <p className="text-[11px] text-slate-400">&ldquo;{gap.query_sample}&rdquo;</p>
-                          <div className="text-[11px] text-slate-300 flex items-center gap-1.5 pt-1 border-t border-white/5">
-                            <ArrowUpRight className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                            <span>Action: {gap.suggested_action}</span>
+                          <p className="text-[11px] text-[#2D2226] font-medium">&ldquo;{gap.query_sample}&rdquo;</p>
+                          <div className="text-[11px] text-[#5C4B52] font-semibold flex items-center gap-1.5 pt-1.5 border-t border-[rgba(160,50,85,0.12)]">
+                            <ArrowUpRight className="w-3.5 h-3.5 text-[#EB4D6E] shrink-0" />
+                            <span className="text-[#111111] font-bold">Action: {gap.suggested_action}</span>
                           </div>
                         </div>
                       ))}
@@ -570,13 +570,13 @@ export default function AdminPage() {
                   </GlassCard>
 
                   {/* Physical Navigation Hotspots */}
-                  <GlassCard className="p-5 border-white/10 space-y-4">
+                  <GlassCard className="p-5 border-2 border-[rgba(160,50,85,0.22)] bg-white shadow-xs space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Compass className="w-4 h-4 text-emerald-400" />
-                        <h4 className="text-sm font-bold text-white">Frequently Requested Navigation Points</h4>
+                        <Compass className="w-4 h-4 text-emerald-700" />
+                        <h4 className="text-sm font-black text-[#111111]">Frequently Requested Navigation Points</h4>
                       </div>
-                      <span className="text-[11px] text-slate-400">Indoor wayfinding demand</span>
+                      <span className="text-[11px] text-[#5C4B52] font-bold">Indoor wayfinding demand</span>
                     </div>
 
                     <div className="space-y-3">
@@ -586,14 +586,14 @@ export default function AdminPage() {
                         { name: 'IT Help Desk', building: 'SJT', floor: 'Floor 1', navigation_requests: 84 },
                         { name: 'Academic Affairs', building: 'SJT', floor: 'Floor 2', navigation_requests: 72 },
                       ]).map((loc: any, idx: number) => (
-                        <div key={idx} className="p-3 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between">
+                        <div key={idx} className="p-3 rounded-xl bg-[#FFF8FA] border border-[rgba(160,50,85,0.18)] flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <div className="text-xs font-semibold text-white">{loc.name}</div>
-                            <div className="text-[11px] text-slate-400">{loc.building} &bull; {loc.floor}</div>
+                            <div className="text-xs font-bold text-[#111111]">{loc.name}</div>
+                            <div className="text-[11px] text-[#5C4B52] font-semibold">{loc.building} &bull; {loc.floor}</div>
                           </div>
                           <div className="text-right">
-                            <span className="font-mono text-xs font-bold text-emerald-400">{loc.navigation_requests}</span>
-                            <div className="text-[10px] text-slate-400">routes generated</div>
+                            <span className="font-mono text-xs font-black text-emerald-800">{loc.navigation_requests}</span>
+                            <div className="text-[10px] text-[#5C4B52] font-semibold">routes generated</div>
                           </div>
                         </div>
                       ))}
@@ -607,8 +607,8 @@ export default function AdminPage() {
             {activeTab === 'Locations' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-sky-400" />
+                  <h3 className="text-base font-black text-[#111111] flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-[#EB4D6E]" />
                     <span>Community Physical Locations ({locations.length})</span>
                   </h3>
                   <GlassButton
@@ -618,26 +618,27 @@ export default function AdminPage() {
                       setCreateType('location');
                       setShowCreateModal(true);
                     }}
+                    className="shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5 mr-1" /> Add Location
                   </GlassButton>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {locations.map((loc) => (
-                    <GlassCard key={loc.id} className="p-4 border-white/10 space-y-2">
+                    <GlassCard key={loc.id} className="p-4 border-2 border-[rgba(160,50,85,0.22)] bg-white shadow-xs space-y-2 hover:border-[#EB4D6E] transition-all">
                       <div className="flex items-start justify-between">
-                        <div className="font-semibold text-white text-sm">{loc.name}</div>
+                        <div className="font-extrabold text-[#111111] text-sm">{loc.name}</div>
                         <GlassBadge variant="primary" size="sm">{loc.category}</GlassBadge>
                       </div>
-                      <div className="text-xs text-slate-400">
+                      <div className="text-xs text-[#5C4B52] font-semibold">
                         {loc.building} &bull; {loc.floor} &bull; Room {loc.room}
                       </div>
                       {loc.description && (
-                        <p className="text-xs text-slate-300 line-clamp-2">{loc.description}</p>
+                        <p className="text-xs text-[#2D2226] font-medium line-clamp-2">{loc.description}</p>
                       )}
-                      <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px] text-slate-400">
-                        <span>Accessible: {loc.accessible ? 'Yes' : 'No'}</span>
-                        <span className="text-sky-400 font-mono">ID: {loc.id.substring(0, 8)}...</span>
+                      <div className="flex items-center justify-between pt-2 border-t border-[rgba(160,50,85,0.12)] text-[11px] text-[#5C4B52] font-medium">
+                        <span>Accessible: <strong className="text-[#111111]">{loc.accessible ? 'Yes' : 'No'}</strong></span>
+                        <span className="text-[#B82346] font-mono font-bold">ID: {loc.id.substring(0, 8)}...</span>
                       </div>
                     </GlassCard>
                   ))}
@@ -649,8 +650,8 @@ export default function AdminPage() {
             {activeTab === 'People' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Users className="w-4 h-4 text-purple-400" />
+                  <h3 className="text-base font-black text-[#111111] flex items-center gap-2">
+                    <Users className="w-4 h-4 text-[#EB4D6E]" />
                     <span>Faculty & Staff Directory ({people.length})</span>
                   </h3>
                   <GlassButton
@@ -660,26 +661,27 @@ export default function AdminPage() {
                       setCreateType('person');
                       setShowCreateModal(true);
                     }}
+                    className="shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5 mr-1" /> Register Person
                   </GlassButton>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {people.map((p) => (
-                    <GlassCard key={p.id} className="p-4 border-white/10 space-y-2">
+                    <GlassCard key={p.id} className="p-4 border-2 border-[rgba(160,50,85,0.22)] bg-white shadow-xs space-y-2 hover:border-[#EB4D6E] transition-all">
                       <div className="flex items-start justify-between">
                         <div>
-                          <div className="font-semibold text-white text-sm">{p.name}</div>
-                          <div className="text-xs text-slate-400">{p.role} &bull; {p.department}</div>
+                          <div className="font-extrabold text-[#111111] text-sm">{p.name}</div>
+                          <div className="text-xs text-[#B82346] font-bold">{p.role} &bull; {p.department}</div>
                         </div>
                         <GlassBadge variant="success" size="sm">{p.availability}</GlassBadge>
                       </div>
-                      <div className="text-xs text-slate-300">
-                        <span className="text-slate-400">Email:</span> {p.email}
+                      <div className="text-xs text-[#2D2226] font-medium">
+                        <span className="text-[#5C4B52] font-bold">Email:</span> {p.email}
                       </div>
                       {p.officeHours && (
-                        <div className="text-xs text-slate-300">
-                          <span className="text-slate-400">Hours:</span> {p.officeHours}
+                        <div className="text-xs text-[#2D2226] font-medium">
+                          <span className="text-[#5C4B52] font-bold">Hours:</span> {p.officeHours}
                         </div>
                       )}
                     </GlassCard>
@@ -692,8 +694,8 @@ export default function AdminPage() {
             {activeTab === 'Services' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-base font-black text-[#111111] flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-[#EB4D6E]" />
                     <span>Institutional Services ({services.length})</span>
                   </h3>
                   <GlassButton
@@ -703,21 +705,22 @@ export default function AdminPage() {
                       setCreateType('service');
                       setShowCreateModal(true);
                     }}
+                    className="shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5 mr-1" /> Add Service
                   </GlassButton>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {services.map((s) => (
-                    <GlassCard key={s.id} className="p-4 border-white/10 space-y-2">
+                    <GlassCard key={s.id} className="p-4 border-2 border-[rgba(160,50,85,0.22)] bg-white shadow-xs space-y-2 hover:border-[#EB4D6E] transition-all">
                       <div className="flex items-start justify-between">
-                        <div className="font-semibold text-white text-sm">{s.name}</div>
+                        <div className="font-extrabold text-[#111111] text-sm">{s.name}</div>
                         {s.isUrgent && <GlassBadge variant="error" size="sm">Urgent</GlassBadge>}
                       </div>
-                      <div className="text-xs text-slate-400">{s.department} &bull; {s.category}</div>
-                      <p className="text-xs text-slate-300 line-clamp-2">{s.description}</p>
-                      <div className="text-[11px] text-slate-400 pt-2 border-t border-white/5">
-                        Hours: {s.hours}
+                      <div className="text-xs text-[#B82346] font-bold">{s.department} &bull; {s.category}</div>
+                      <p className="text-xs text-[#2D2226] font-medium line-clamp-2">{s.description}</p>
+                      <div className="text-[11px] text-[#5C4B52] font-semibold pt-2 border-t border-[rgba(160,50,85,0.12)]">
+                        Hours: <strong className="text-[#111111]">{s.hours}</strong>
                       </div>
                     </GlassCard>
                   ))}
@@ -729,34 +732,34 @@ export default function AdminPage() {
             {activeTab === 'Procedures' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-indigo-400" />
+                  <h3 className="text-base font-black text-[#111111] flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-[#EB4D6E]" />
                     <span>Official Guidelines & Procedures ({procedures.length})</span>
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {procedures.map((prc) => (
-                    <GlassCard key={prc.id} className="p-4 border-white/10 space-y-3">
+                    <GlassCard key={prc.id} className="p-4 border-2 border-[rgba(160,50,85,0.22)] bg-white shadow-xs space-y-3 hover:border-[#EB4D6E] transition-all">
                       <div className="flex items-start justify-between">
                         <div>
-                          <div className="font-semibold text-white text-sm">{prc.title}</div>
-                          <div className="text-xs text-slate-400">{prc.category} &bull; {prc.responsibleOffice}</div>
+                          <div className="font-extrabold text-[#111111] text-sm">{prc.title}</div>
+                          <div className="text-xs text-[#B82346] font-bold">{prc.category} &bull; {prc.responsibleOffice}</div>
                         </div>
                         <GlassBadge variant="success" size="sm">Active</GlassBadge>
                       </div>
                       <div>
-                        <div className="text-[11px] font-semibold text-slate-400 mb-1">Requirements:</div>
+                        <div className="text-[11px] font-bold text-[#5C4B52] uppercase tracking-wider mb-1">Requirements:</div>
                         <div className="flex flex-wrap gap-1">
                           {prc.requiredDocuments.map((doc, idx) => (
-                            <span key={idx} className="px-2 py-0.5 rounded text-[10px] bg-white/5 text-slate-300 border border-white/5">
+                            <span key={idx} className="px-2 py-0.5 rounded text-[10px] bg-[#FFE2E8] text-[#B82346] font-bold border border-[#EB4D6E]/30">
                               {doc}
                             </span>
                           ))}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[11px] font-semibold text-slate-400 mb-1">Steps:</div>
-                        <ol className="text-xs text-slate-300 list-decimal list-inside space-y-0.5">
+                        <div className="text-[11px] font-bold text-[#5C4B52] uppercase tracking-wider mb-1">Steps:</div>
+                        <ol className="text-xs text-[#2D2226] font-medium list-decimal list-inside space-y-0.5">
                           {prc.steps.slice(0, 3).map((st, idx) => (
                             <li key={idx} className="truncate">{st}</li>
                           ))}
@@ -772,8 +775,8 @@ export default function AdminPage() {
             {activeTab === 'Announcements' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-base font-black text-[#111111] flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-[#EB4D6E]" />
                     <span>Community Broadcasts & Alerts ({announcements.length})</span>
                   </h3>
                   <GlassButton
@@ -783,16 +786,17 @@ export default function AdminPage() {
                       setCreateType('announcement');
                       setShowCreateModal(true);
                     }}
+                    className="shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5 mr-1" /> Post Announcement
                   </GlassButton>
                 </div>
                 <div className="space-y-3">
                   {announcements.map((a) => (
-                    <GlassCard key={a.id} className="p-4 border-white/10 flex items-start justify-between gap-4">
+                    <GlassCard key={a.id} className="p-4 border-2 border-[rgba(160,50,85,0.22)] bg-white shadow-xs flex items-start justify-between gap-4 hover:border-[#EB4D6E] transition-all">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-white text-sm">{a.title}</span>
+                          <span className="font-extrabold text-[#111111] text-sm">{a.title}</span>
                           <GlassBadge
                             variant={a.priority === 'critical' ? 'error' : a.priority === 'urgent' ? 'warning' : 'default'}
                             size="sm"
@@ -800,8 +804,8 @@ export default function AdminPage() {
                             {a.priority.toUpperCase()}
                           </GlassBadge>
                         </div>
-                        <p className="text-xs text-slate-300">{a.message}</p>
-                        <div className="text-[11px] text-slate-400">{a.department} &bull; {formatDate(a.timestamp)}</div>
+                        <p className="text-xs text-[#2D2226] font-medium">{a.message}</p>
+                        <div className="text-[11px] text-[#5C4B52] font-semibold">{a.department} &bull; {formatDate(a.timestamp)}</div>
                       </div>
                     </GlassCard>
                   ))}
@@ -814,11 +818,11 @@ export default function AdminPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <History className="w-4 h-4 text-emerald-400" />
+                    <h3 className="text-base font-black text-[#111111] flex items-center gap-2">
+                      <History className="w-4 h-4 text-[#EB4D6E]" />
                       <span>Security & Operational Audit Trail</span>
                     </h3>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-[#5C4B52] font-medium">
                       Immutable record of administrative actions, verifications, and auth events.
                     </p>
                   </div>
@@ -827,9 +831,9 @@ export default function AdminPage() {
                   </GlassBadge>
                 </div>
 
-                <div className="rounded-2xl glass-panel border border-white/10 overflow-hidden shadow-xl">
+                <div className="rounded-2xl bg-white border-2 border-[rgba(160,50,85,0.22)] overflow-hidden shadow-xs">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-900/80 border-b border-white/10 text-slate-400 uppercase font-semibold">
+                    <thead className="bg-[#FFF0F4] border-b-2 border-[rgba(160,50,85,0.18)] text-[#5C4B52] uppercase font-black tracking-wider">
                       <tr>
                         <th className="px-4 py-3">Action</th>
                         <th className="px-4 py-3">Resource</th>
@@ -838,22 +842,22 @@ export default function AdminPage() {
                         <th className="px-4 py-3">Timestamp</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5 text-slate-300">
+                    <tbody className="divide-y divide-[rgba(160,50,85,0.12)] text-[#2D2226]">
                       {auditLogs.map((log, idx) => (
-                        <tr key={idx} className="hover:bg-white/[0.02]">
-                          <td className="px-4 py-2.5 font-mono text-[11px] font-semibold text-amber-400">
+                        <tr key={idx} className="hover:bg-[#FFF8FA] transition-colors">
+                          <td className="px-4 py-2.5 font-mono text-[11px] font-bold text-[#B82346]">
                             {log.action}
                           </td>
-                          <td className="px-4 py-2.5 font-mono text-[11px] text-sky-300">
+                          <td className="px-4 py-2.5 font-mono text-[11px] text-[#111111] font-semibold">
                             {log.resource_type || 'N/A'} {log.resource_id ? `(${log.resource_id.substring(0, 8)}...)` : ''}
                           </td>
-                          <td className="px-4 py-2.5 font-mono text-[11px] text-slate-400">
+                          <td className="px-4 py-2.5 font-mono text-[11px] text-[#5C4B52]">
                             {log.user_id ? log.user_id.substring(0, 8) + '...' : 'System'}
                           </td>
-                          <td className="px-4 py-2.5 font-mono text-[11px] text-slate-400">
+                          <td className="px-4 py-2.5 font-mono text-[11px] text-[#5C4B52]">
                             {log.ip_address || '127.0.0.1'}
                           </td>
-                          <td className="px-4 py-2.5 text-slate-400 text-[11px]">
+                          <td className="px-4 py-2.5 text-[#5C4B52] font-medium text-[11px]">
                             {log.created_at ? formatDate(log.created_at) : 'Just now'}
                           </td>
                         </tr>
@@ -868,14 +872,15 @@ export default function AdminPage() {
 
         {/* Create Item Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <GlassCard variant="elevated" className="w-full max-w-md p-6 border-white/20 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-base font-bold text-white capitalize">Create {createType}</h4>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <GlassCard variant="elevated" className="w-full max-w-md p-6 bg-white border-2 border-[rgba(160,50,85,0.28)] rounded-3xl shadow-2xl space-y-4 text-[#111111]">
+              <div className="flex items-center justify-between pb-2 border-b border-[rgba(160,50,85,0.14)]">
+                <h4 className="text-base font-black text-[#111111] capitalize">Create New {createType}</h4>
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="text-slate-400 hover:text-white"
+                  className="text-[#5C4B52] hover:text-[#111111] p-1 rounded-lg hover:bg-[#FFE2E8] transition-colors cursor-pointer"
+                  aria-label="Close modal"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1067,12 +1072,13 @@ export default function AdminPage() {
                   </>
                 )}
 
-                <div className="flex items-center justify-end gap-2 pt-3">
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-[rgba(160,50,85,0.14)]">
                   <GlassButton
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowCreateModal(false)}
+                    className="text-[#5C4B52] hover:text-[#111111] font-bold"
                   >
                     Cancel
                   </GlassButton>
@@ -1081,7 +1087,7 @@ export default function AdminPage() {
                     variant="primary"
                     size="sm"
                     isLoading={isSubmitting}
-                    className="bg-amber-600 hover:bg-amber-500"
+                    className="shadow-xs font-bold"
                   >
                     Save & Submit
                   </GlassButton>
