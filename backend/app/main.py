@@ -23,6 +23,7 @@ from app.api.routes import (
     documents,
     announcements,
     admin,
+    chat,
 )
 
 setup_logging()
@@ -128,3 +129,4 @@ app.include_router(procedures.router, prefix=v1_prefix)
 app.include_router(documents.router, prefix=v1_prefix)
 app.include_router(announcements.router, prefix=v1_prefix)
 app.include_router(admin.router, prefix=v1_prefix)
+app.include_router(chat.router, prefix=v1_prefix)

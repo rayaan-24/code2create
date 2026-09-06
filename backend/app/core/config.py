@@ -25,8 +25,18 @@ class Settings(BaseSettings):
         "http://localhost:3001",
     ]
 
-    # Future integration placeholders (Phase 3 & 4)
+    # AI / SGLang / RAG Configuration (Phase 3)
     SGLANG_BASE_URL: str = "http://localhost:30000"
+    SGLANG_MODEL: str = "meta-llama/Llama-3.1-8B-Instruct"
+    EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+    VECTOR_SEARCH_TOP_K: int = 10
+    RERANK_TOP_K: int = 5
+    MAX_CONTEXT_TOKENS: int = 4096
+    MAX_TOOL_CALLS: int = 5
+    AI_REQUEST_TIMEOUT: int = 30
+    RATE_LIMIT_PER_MINUTE: int = 60
+
+    # Phase 4 integration placeholders
     ELEVENLABS_API_KEY: str = ""
     SERPAPI_API_KEY: str = ""
 

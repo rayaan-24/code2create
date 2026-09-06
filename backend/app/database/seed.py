@@ -24,7 +24,118 @@ from app.models.procedure import (
 from app.models.document import Document, DocumentVersion
 from app.models.announcement import Announcement, AnnouncementPriority
 from app.models.audit import AuditLog, AuditAction
+from app.models.chunk import KnowledgeChunk
+from app.ai.retrieval.embeddings import embedding_provider
 from app.services.audit_service import log_audit_event
+
+
+def seed_knowledge_chunks(db, community, doc_handbook=None, doc_lab=None):
+    if not doc_handbook:
+        doc_handbook = db.query(Document).filter(Document.community_id == community.id).first()
+    if not doc_lab:
+        doc_lab = db.query(Document).filter(Document.community_id == community.id).order_by(Document.created_at.desc()).first()
+
+    doc_hb_id = doc_handbook.id if doc_handbook else None
+    doc_lab_id = doc_lab.id if doc_lab else None
+    hb_title = doc_handbook.title if doc_handbook else "Student Handbook 2026"
+    lab_title = doc_lab.title if doc_lab else "Quantum Lab Safety Protocol"
+
+    sample_chunks = [
+        {
+            "content": (
+                "Student ID Card Replacement Procedure (Handbook Section 4.2):\n"
+                "If a student or staff member loses their RFID institutional ID card, they must report the lost item "
+                "at the Campus Security desk. Then, proceed to the Student Services Center located in the Silver Jubilee Tower (SJT), "
+                "Ground Floor, Room G12. Office hours are Monday through Friday, 9:00 AM to 4:30 PM.\n"
+                "Requirements:\n"
+                "1. Original Government Photo ID (Passport, Driver's License, or National ID)\n"
+                "2. Campus Police Incident Log receipt or Lost Property Declaration\n"
+                "3. Proof of active term enrollment and fee clearance receipt\n"
+                "4. Passport-size photograph (can also be captured at the counter)\n"
+                "A mandatory replacement card fee of $15 is charged upon processing. Replacement cards are issued within 15 minutes."
+            ),
+            "section": "Section 4.2: Identification Credentials",
+            "page": 34,
+            "doc_id": doc_hb_id,
+            "doc_title": hb_title,
+            "status": "VERIFIED",
+        },
+        {
+            "content": (
+                "Nexora Central Library Operating Hours and Guidelines (Handbook Section 3.1):\n"
+                "The Central Library occupies Levels 1 through 4 of the Library & Information Commons. "
+                "During active academic terms, the library operates 24 hours a day for registered students. "
+                "Silent study carrels are located on Level 3 and Level 4. Group discussion pods are situated on Level 2. "
+                "Wi-Fi networks 'Nexora-Secure' and 'eduroam' are available campus-wide."
+            ),
+            "section": "Section 3.1: Academic Facilities & Libraries",
+            "page": 18,
+            "doc_id": doc_hb_id,
+            "doc_title": hb_title,
+            "status": "VERIFIED",
+        },
+        {
+            "content": (
+                "Overnight Laboratory Access & Safety Escort Protocol:\n"
+                "The Advanced Quantum Information & Computing Lab is situated on Floor 3 of the Silver Jubilee Tower (Room SJT-312). "
+                "The faculty head is Dr. Elena Rostova. Regular lab hours are 8:00 AM to 8:00 PM.\n"
+                "Students requiring post-11:00 PM overnight access must secure prior written authorization from the Department Head "
+                "and must arrange a campus security safety escort when entering or departing after midnight."
+            ),
+            "section": "Section 2.1: Quantum Computing Lab Protocol",
+            "page": 5,
+            "doc_id": doc_lab_id,
+            "doc_title": lab_title,
+            "status": "VERIFIED",
+        },
+        {
+            "content": (
+                "Hostel Night-Out Permission Protocol (Handbook Section 6.5):\n"
+                "Residential students planning overnight leave must submit an electronic leave pass on the Nexora Portal. "
+                "Parental or guardian verification via one-time password (OTP) is mandatory prior to 8:30 PM on the date of departure. "
+                "Emergency curfew contact number is +1 (555) 019-3321."
+            ),
+            "section": "Section 6.5: Residential Living",
+            "page": 52,
+            "doc_id": doc_hb_id,
+            "doc_title": hb_title,
+            "status": "VERIFIED",
+        },
+        {
+            "content": (
+                "Official Transcripts and Bonafide Certificates:\n"
+                "Official student transcripts, grade cards, and bonafide enrollment certificates are issued by the "
+                "Academic Registry located in the Main Administrative Center, Room MB-104. Operating hours are 9:30 AM to 4:00 PM on weekdays. "
+                "Digital e-transcripts can be requested online with a 48-hour fulfillment window."
+            ),
+            "section": "Section 5.1: Academic Records",
+            "page": 40,
+            "doc_id": doc_hb_id,
+            "doc_title": hb_title,
+            "status": "VERIFIED",
+        },
+    ]
+
+    for sc in sample_chunks:
+        chunk_emb = embedding_provider.embed_text(sc["content"])
+        chunk_rec = KnowledgeChunk(
+            document_id=sc["doc_id"],
+            community_id=community.id,
+            content=sc["content"],
+            page_number=sc["page"],
+            section=sc["section"],
+            verification_status=sc["status"],
+        )
+        chunk_rec.embedding = chunk_emb
+        chunk_rec.metadata_dict = {
+            "document_title": sc["doc_title"],
+            "section": sc["section"],
+            "page": sc["page"],
+        }
+        db.add(chunk_rec)
+
+    db.commit()
+    print("[SUCCESS] Seeded knowledge chunks for community RAG.")
 
 
 def seed_database():
@@ -40,7 +151,12 @@ def seed_database():
             .first()
         )
         if existing_comm:
-            print("[INFO] Community already seeded.")
+            existing_chunks = db.query(KnowledgeChunk).filter(KnowledgeChunk.community_id == existing_comm.id).count()
+            if existing_chunks == 0:
+                print("[INFO] Community exists, but knowledge chunks are missing. Seeding chunks now...")
+                seed_knowledge_chunks(db, existing_comm)
+            else:
+                print("[INFO] Community and knowledge chunks already seeded.")
             return
 
         # 2. Create Community
@@ -433,7 +549,99 @@ def seed_database():
             ip_address="127.0.0.1",
         )
 
-        print("[SUCCESS] Nexora database successfully seeded with demo community, accounts, locations, services, and procedures.")
+        # 12. Seed Verified Knowledge Chunks for RAG
+        sample_chunks = [
+            {
+                "content": (
+                    "Student ID Card Replacement Procedure (Handbook Section 4.2):\n"
+                    "If a student or staff member loses their RFID institutional ID card, they must report the lost item "
+                    "at the Campus Security desk. Then, proceed to the Student Services Center located in the Silver Jubilee Tower (SJT), "
+                    "Ground Floor, Room G12. Office hours are Monday through Friday, 9:00 AM to 4:30 PM.\n"
+                    "Requirements:\n"
+                    "1. Original Government Photo ID (Passport, Driver's License, or National ID)\n"
+                    "2. Campus Police Incident Log receipt or Lost Property Declaration\n"
+                    "3. Proof of active term enrollment and fee clearance receipt\n"
+                    "4. Passport-size photograph (can also be captured at the counter)\n"
+                    "A mandatory replacement card fee of $15 is charged upon processing. Replacement cards are issued within 15 minutes."
+                ),
+                "section": "Section 4.2: Identification Credentials",
+                "page": 34,
+                "doc_id": doc_handbook.id,
+                "status": "VERIFIED",
+            },
+            {
+                "content": (
+                    "Nexora Central Library Operating Hours and Guidelines (Handbook Section 3.1):\n"
+                    "The Central Library occupies Levels 1 through 4 of the Library & Information Commons. "
+                    "During active academic terms, the library operates 24 hours a day for registered students. "
+                    "Silent study carrels are located on Level 3 and Level 4. Group discussion pods are situated on Level 2. "
+                    "Wi-Fi networks 'Nexora-Secure' and 'eduroam' are available campus-wide."
+                ),
+                "section": "Section 3.1: Academic Facilities & Libraries",
+                "page": 18,
+                "doc_id": doc_handbook.id,
+                "status": "VERIFIED",
+            },
+            {
+                "content": (
+                    "Overnight Laboratory Access & Safety Escort Protocol:\n"
+                    "The Advanced Quantum Information & Computing Lab is situated on Floor 3 of the Silver Jubilee Tower (Room SJT-312). "
+                    "The faculty head is Dr. Elena Rostova. Regular lab hours are 8:00 AM to 8:00 PM.\n"
+                    "Students requiring post-11:00 PM overnight access must secure prior written authorization from the Department Head "
+                    "and must arrange a campus security safety escort when entering or departing after midnight."
+                ),
+                "section": "Section 2.1: Quantum Computing Lab Protocol",
+                "page": 5,
+                "doc_id": doc_lab.id,
+                "status": "VERIFIED",
+            },
+            {
+                "content": (
+                    "Hostel Night-Out Permission Protocol (Handbook Section 6.5):\n"
+                    "Residential students planning overnight leave must submit an electronic leave pass on the Nexora Portal. "
+                    "Parental or guardian verification via one-time password (OTP) is mandatory prior to 8:30 PM on the date of departure. "
+                    "Emergency curfew contact number is +1 (555) 019-3321."
+                ),
+                "section": "Section 6.5: Residential Living",
+                "page": 52,
+                "doc_id": doc_handbook.id,
+                "status": "VERIFIED",
+            },
+            {
+                "content": (
+                    "Official Transcripts and Bonafide Certificates:\n"
+                    "Official student transcripts, grade cards, and bonafide enrollment certificates are issued by the "
+                    "Academic Registry located in the Main Administrative Center, Room MB-104. Operating hours are 9:30 AM to 4:00 PM on weekdays. "
+                    "Digital e-transcripts can be requested online with a 48-hour fulfillment window."
+                ),
+                "section": "Section 5.1: Academic Records",
+                "page": 40,
+                "doc_id": doc_handbook.id,
+                "status": "VERIFIED",
+            },
+        ]
+
+        for sc in sample_chunks:
+            chunk_emb = embedding_provider.embed_text(sc["content"])
+            chunk_rec = KnowledgeChunk(
+                document_id=sc["doc_id"],
+                community_id=community.id,
+                content=sc["content"],
+                page_number=sc["page"],
+                section=sc["section"],
+                verification_status=sc["status"],
+            )
+            chunk_rec.embedding = chunk_emb
+            chunk_rec.metadata_dict = {
+                "document_title": doc_handbook.title if sc["doc_id"] == doc_handbook.id else doc_lab.title,
+                "section": sc["section"],
+                "page": sc["page"],
+            }
+            db.add(chunk_rec)
+
+        db.commit()
+
+        print("[SUCCESS] Nexora database successfully seeded with demo community, accounts, locations, services, procedures, and knowledge chunks.")
     except Exception as e:
         db.rollback()
         print(f"[ERROR] Failed to seed database: {e}")

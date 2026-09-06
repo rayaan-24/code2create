@@ -13,6 +13,8 @@ from app.models.procedure import (
 from app.models.document import Document, DocumentVersion
 from app.models.announcement import Announcement, AnnouncementPriority
 from app.models.audit import AuditLog, AuditAction
+from app.models.chunk import KnowledgeChunk
+from app.models.conversation import ConversationSession, ConversationMessage
 
 __all__ = [
     "Base",
@@ -35,4 +37,7 @@ __all__ = [
     "AnnouncementPriority",
     "AuditLog",
     "AuditAction",
+    "KnowledgeChunk",
+    "ConversationSession",
+    "ConversationMessage",
 ]
