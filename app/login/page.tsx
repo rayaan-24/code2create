@@ -12,6 +12,8 @@ import { GlassButton } from '@/components/ui/GlassButton';
 import { GlassInput } from '@/components/ui/GlassInput';
 import { GlassBadge } from '@/components/ui/GlassBadge';
 
+import { authApi } from '@/lib/api/auth';
+
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid community email address'),
   password: z.string().min(6, 'Password must contain at least 6 characters'),
@@ -28,12 +30,13 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: 'alex.rivera@nexora.edu',
-      password: 'password123',
+      password: 'Student@123456',
     },
   });
 
@@ -41,12 +44,29 @@ export default function LoginPage() {
     setIsLoading(true);
     setAuthError(null);
 
-    // Simulate authentication delay
-    setTimeout(() => {
+    try {
+      const res = await authApi.login(data.email, data.password);
+      if (res.error) {
+        setAuthError(res.error);
+        setIsLoading(false);
+        return;
+      }
+      // If admin, go to /admin; else go to /dashboard
+      if (res.data?.user?.role === 'ADMIN' || res.data?.user?.role === 'SUPER_ADMIN') {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard');
+      }
+    } catch (err: any) {
+      setAuthError(err?.message || 'Login failed. Please verify credentials.');
+    } finally {
       setIsLoading(false);
-      // Mock successful login redirection
-      router.push('/dashboard');
-    }, 1000);
+    }
+  };
+
+  const setDemoCredentials = (email: string, pass: string) => {
+    setValue('email', email);
+    setValue('password', pass);
   };
 
   const handleGoogleSignIn = () => {
@@ -84,6 +104,34 @@ export default function LoginPage() {
               {authError}
             </div>
           )}
+
+          {/* Quick Demo Credentials */}
+          <div className="mb-5 p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+            <div className="text-[11px] font-medium text-slate-400">Quick Demo Accounts:</div>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setDemoCredentials('alex.rivera@nexora.edu', 'Student@123456')}
+                className="px-2.5 py-1 text-[11px] rounded-lg bg-sky-500/15 border border-sky-400/30 text-sky-300 hover:bg-sky-500/25 transition-all"
+              >
+                Student
+              </button>
+              <button
+                type="button"
+                onClick={() => setDemoCredentials('elena.rostova@nexora.edu', 'Faculty@123456')}
+                className="px-2.5 py-1 text-[11px] rounded-lg bg-purple-500/15 border border-purple-400/30 text-purple-300 hover:bg-purple-500/25 transition-all"
+              >
+                Faculty
+              </button>
+              <button
+                type="button"
+                onClick={() => setDemoCredentials('admin@nexora.edu', 'Admin@123456')}
+                className="px-2.5 py-1 text-[11px] rounded-lg bg-amber-500/15 border border-amber-400/30 text-amber-300 hover:bg-amber-500/25 transition-all font-semibold"
+              >
+                Admin
+              </button>
+            </div>
+          </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <GlassInput

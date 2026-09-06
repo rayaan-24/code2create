@@ -12,6 +12,8 @@ import { GlassButton } from '@/components/ui/GlassButton';
 import { GlassInput } from '@/components/ui/GlassInput';
 import { COMMUNITY_ROLES } from '@/lib/constants';
 
+import { authApi } from '@/lib/api/auth';
+
 const registerSchema = z
   .object({
     fullName: z.string().min(2, 'Full name must be at least 2 characters'),
@@ -35,6 +37,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const {
     register,
@@ -58,13 +61,39 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormValues) => {
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    setErrorMsg(null);
+
+    try {
+      const roleMap: Record<string, string> = {
+        student: 'USER',
+        faculty: 'FACULTY',
+        staff: 'STAFF',
+        visitor: 'USER',
+      };
+
+      const res = await authApi.register({
+        name: data.fullName,
+        email: data.email,
+        password: data.password,
+        community_name: data.community,
+        role: roleMap[data.role] || 'USER',
+      });
+
+      if (res.error) {
+        setErrorMsg(res.error);
+        setIsLoading(false);
+        return;
+      }
+
       setIsSuccess(true);
       setTimeout(() => {
         router.push('/dashboard');
       }, 1200);
-    }, 1000);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -97,7 +126,13 @@ export default function RegisterPage() {
               </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <>
+              {errorMsg && (
+                <div className="mb-4 p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs">
+                  {errorMsg}
+                </div>
+              )}
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <GlassInput
                 label="Full Name"
                 placeholder="Alex Rivera"
@@ -190,6 +225,7 @@ export default function RegisterPage() {
                 <ArrowRight className="w-4 h-4 ml-2" />
               </GlassButton>
             </form>
+            </>
           )}
 
           <div className="mt-6 text-center text-xs text-slate-400">

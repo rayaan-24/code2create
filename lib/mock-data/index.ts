@@ -92,6 +92,8 @@ export const mockIdCardProcedure: ProcedureItem = {
   contactEmail: 'studentservices@nexora.edu',
 };
 
+export const mockProcedures: ProcedureItem[] = [mockIdCardProcedure];
+
 export const mockInitialMessages: Record<string, ChatMessage[]> = {
   conv_1: [
     {
