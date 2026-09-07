@@ -1,4 +1,6 @@
 import logging
+import time
+import uuid
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
@@ -58,6 +60,11 @@ async def handle_chat(
     Orchestrates intent detection, hybrid RAG retrieval, tool execution, SGLang inference,
     and returns grounded response with sources and actions.
     """
+    start_time = time.time()
+    request_id = f"REQ-CHAT-{uuid.uuid4().hex[:6]}"
+    is_guest = getattr(current_user, "email", "") == "alex.rivera@nexora.edu" or not getattr(current_user, "id", None)
+    logger.info(f"[{request_id}] CHAT ROUTE INGRESS: user_id={current_user.id} guest={is_guest} msg='{payload.message[:50]}'")
+
     community = db.query(Community).filter(Community.id == current_user.community_id).first()
     if not community:
         raise HTTPException(
@@ -73,6 +80,14 @@ async def handle_chat(
         conversation_id=payload.conversation_id,
         debug_mode=payload.debug_mode,
     )
+
+    if not response.conversation_id:
+        response.conversation_id = payload.conversation_id or "conv_active"
+    if not response.session_id:
+        response.session_id = response.conversation_id
+
+    duration_ms = round((time.time() - start_time) * 1000, 2)
+    logger.info(f"[{request_id}] CHAT ROUTE COMPLETED: duration={duration_ms}ms intent={response.intent}")
 
     return ResponseEnvelope(data=response)
 

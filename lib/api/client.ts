@@ -83,7 +83,7 @@ export async function createErrorResponse<T>(
   };
 }
 
-const DEFAULT_TIMEOUT_MS = 35000;
+const DEFAULT_TIMEOUT_MS = 60000;
 
 /**
  * Universal API dispatcher that connects to FastAPI with finite timeout and error handling.
@@ -108,6 +108,8 @@ export async function apiRequest<T>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  console.log(`[Nexora API] ${options.method || 'GET'} ${url} (timeout: ${timeoutMs}ms)`);
+
   try {
     const res = await fetch(url, {
       ...options,
@@ -130,9 +132,15 @@ export async function apiRequest<T>(
         errMsg = 'Authentication required. Please log in or continue in guest mode.';
       } else if (res.status === 404) {
         errMsg = `Requested resource not found at ${endpoint}.`;
+      } else if (res.status === 408) {
+        errMsg = 'The chat request timed out (60s limit). Please check backend connection or try a simpler query.';
+      } else if (res.status === 503) {
+        errMsg = 'Nexora AI service is currently degraded or LLM provider is unconfigured/unreachable.';
       } else if (res.status >= 500) {
-        errMsg = 'Nexora AI server error. Please try again in a few moments.';
+        errMsg = 'Nexora AI backend server error. Please try again in a few moments.';
       }
+
+      console.warn(`[Nexora API Error] ${res.status} ${url}: ${errMsg}`);
 
       return {
         data: null,
@@ -152,16 +160,18 @@ export async function apiRequest<T>(
   } catch (err: any) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
+      console.warn(`[Nexora API Timeout] AbortError on ${url}`);
       return {
         data: null,
-        error: 'The request took too long. Please try again.',
+        error: 'The chat request timed out (60s limit). Please check backend connection or try again.',
         status: 408,
       };
     }
 
+    console.warn(`[Nexora API Network Error] ${url}:`, err);
     return {
       data: null,
-      error: err.message || 'Unable to connect to Nexora backend. Check that the server is running.',
+      error: err.message || 'Unable to connect to Nexora backend. Check that the server is running at http://localhost:8001.',
       status: 0,
     };
   }

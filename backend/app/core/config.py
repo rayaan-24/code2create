@@ -73,29 +73,47 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "auto"
 
     @property
+    def effective_llm_provider(self) -> str:
+        if self.GROQ_API_KEY and self.GROQ_API_KEY.strip():
+            return "groq"
+        if self.OPENAI_API_KEY and self.OPENAI_API_KEY.strip():
+            return "openai"
+        if self.SGLANG_API_KEY and self.SGLANG_API_KEY.strip():
+            return "sglang"
+        if self.LLM_API_KEY and self.LLM_API_KEY.strip():
+            return "custom"
+        return "local"
+
+    @property
     def effective_llm_api_key(self) -> str:
-        return (
-            self.LLM_API_KEY
-            or self.GROQ_API_KEY
-            or self.OPENAI_API_KEY
-            or self.SGLANG_API_KEY
-        ).strip()
+        provider = self.effective_llm_provider
+        if provider == "groq":
+            return self.GROQ_API_KEY.strip()
+        if provider == "openai":
+            return self.OPENAI_API_KEY.strip()
+        if provider == "sglang":
+            return self.SGLANG_API_KEY.strip()
+        if provider == "custom":
+            return self.LLM_API_KEY.strip()
+        return ""
 
     @property
     def effective_llm_base_url(self) -> str:
-        # If GROQ_API_KEY is provided and SGLANG_BASE_URL is localhost default, switch to Groq endpoint
-        if self.GROQ_API_KEY and ("localhost:30000" in self.SGLANG_BASE_URL or "127.0.0.1:30000" in self.SGLANG_BASE_URL):
+        provider = self.effective_llm_provider
+        if provider == "groq":
             return "https://api.groq.com/openai/v1"
-        # If OPENAI_API_KEY is provided and SGLANG_BASE_URL is localhost default, switch to OpenAI endpoint
-        if self.OPENAI_API_KEY and ("localhost:30000" in self.SGLANG_BASE_URL or "127.0.0.1:30000" in self.SGLANG_BASE_URL):
+        if provider == "openai":
             return "https://api.openai.com/v1"
         return self.SGLANG_BASE_URL.rstrip("/")
 
     @property
     def effective_llm_model(self) -> str:
-        if self.GROQ_API_KEY and self.SGLANG_MODEL == "meta-llama/Llama-3.1-8B-Instruct" and "groq.com" in self.effective_llm_base_url:
-            return "openai/gpt-oss-20b"
-        if self.OPENAI_API_KEY and self.SGLANG_MODEL == "meta-llama/Llama-3.1-8B-Instruct" and "openai.com" in self.effective_llm_base_url:
+        provider = self.effective_llm_provider
+        if provider == "groq":
+            if self.SGLANG_MODEL and ("llama" in self.SGLANG_MODEL.lower() or self.SGLANG_MODEL == "meta-llama/Llama-3.1-8B-Instruct"):
+                return "llama-3.3-70b-versatile"
+            return self.SGLANG_MODEL
+        if provider == "openai":
             return "gpt-4o-mini"
         return self.SGLANG_MODEL
 
