@@ -28,7 +28,10 @@ class DocumentIngestionService:
         chunker: Optional[SemanticChunker] = None,
     ):
         self.storage = storage
-        self.chunker = chunker or SemanticChunker(target_chunk_chars=600, overlap_chars=100)
+        self.chunker = chunker or SemanticChunker(
+            target_chunk_chars=settings.RAG_CHUNK_SIZE_CHARS,
+            overlap_chars=settings.RAG_CHUNK_OVERLAP_CHARS,
+        )
 
     def ingest_document(
         self,
@@ -40,6 +43,7 @@ class DocumentIngestionService:
         title: Optional[str] = None,
         description: Optional[str] = None,
         auto_verify: bool = True,
+        metadata: Optional[dict] = None,
     ) -> DocumentIngestionResponse:
         """
         Execute the full ingestion pipeline for an uploaded file.
@@ -58,7 +62,14 @@ class DocumentIngestionService:
             )
 
         document_id = str(uuid.uuid4())
+        metadata = metadata or {}
         doc_title = title.strip() if title and title.strip() else os.path.splitext(file_name)[0].replace("_", " ").title()
+
+        # Duplicate detection stays within the tenant boundary and never creates duplicate chunks.
+        checksum = self.storage.compute_sha256(file_bytes)
+        existing = db.query(Document).filter(Document.community_id == community_id, Document.content_hash == checksum).first()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "DUPLICATE_DOCUMENT", "message": "Document already exists.", "details": {"document_id": existing.id}})
 
         # Step 2: Store original document to persistent local storage
         try:
@@ -105,6 +116,19 @@ class DocumentIngestionService:
                 file_type=ext.lstrip("."),
                 storage_key=storage_key,
                 version=1,
+                original_filename=file_name,
+                file_size_bytes=len(file_bytes),
+                mime_type=metadata.get("mime_type"),
+                category=metadata.get("category"),
+                department=metadata.get("department"),
+                school=metadata.get("school"),
+                course=metadata.get("course"),
+                semester=metadata.get("semester"),
+                academic_year=metadata.get("academic_year"),
+                source=metadata.get("source") or "Admin upload",
+                ingestion_status="PROCESSING",
+                embedding_model=embedding_provider.model_name,
+                content_hash=checksum,
                 uploaded_by=user_id,
                 verification_status=verification_enum,
                 is_active=True,
@@ -143,6 +167,10 @@ class DocumentIngestionService:
                     "checksum": checksum,
                     "storage_key": storage_key,
                     "file_type": ext.lstrip("."),
+                    "category": metadata.get("category"), "department": metadata.get("department"),
+                    "school": metadata.get("school"), "course": metadata.get("course"),
+                    "semester": metadata.get("semester"), "academic_year": metadata.get("academic_year"),
+                    "source": metadata.get("source") or "Admin upload", "uploaded_by": user_id,
                 }
 
                 db_chunk = KnowledgeChunk(
@@ -163,6 +191,8 @@ class DocumentIngestionService:
 
             # Step 7: Store chunks in database
             db.add_all(knowledge_chunks)
+            doc.chunk_count = len(knowledge_chunks)
+            doc.ingestion_status = "READY"
             db.commit()
             db.refresh(doc)
 
@@ -185,6 +215,7 @@ class DocumentIngestionService:
             chunks_created=len(knowledge_chunks),
             verification_status=status_str,
             message="Document successfully ingested and indexed into knowledge base",
+            ingestion_status="READY",
         )
 
 

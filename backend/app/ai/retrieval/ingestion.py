@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import csv
 import unicodedata
 import zipfile
 import xml.etree.ElementTree as ET
@@ -59,11 +60,11 @@ class ParsedPage:
 
 class DocumentParser:
     """
-    Extracts text and structural sections from PDF, DOCX, Markdown, and TXT files,
+    Extracts text and structural sections from PDF, DOCX, PPTX, CSV, Markdown, and TXT files,
     validates file integrity, and applies text cleaning.
     """
 
-    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".markdown"}
+    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".txt", ".md", ".markdown", ".csv"}
 
     @classmethod
     def validate_file_content(
@@ -93,13 +94,14 @@ class DocumentParser:
             # PDF header is %PDF-
             if not file_bytes[:1024].startswith(b"%PDF-") and b"%PDF-" not in file_bytes[:1024]:
                 raise ValueError(f"File '{file_name}' claims to be PDF but lacks a valid PDF header.")
-        elif ext == ".docx":
+        elif ext in {".docx", ".pptx"}:
             # DOCX is a zip file starting with PK\x03\x04
             if not file_bytes.startswith(b"PK\x03\x04"):
                 raise ValueError(f"File '{file_name}' claims to be DOCX but lacks a valid zip archive header.")
             try:
                 with zipfile.ZipFile(io.BytesIO(file_bytes)) as zf:
-                    if "word/document.xml" not in zf.namelist():
+                    required = "word/document.xml" if ext == ".docx" else "ppt/presentation.xml"
+                    if required not in zf.namelist():
                         raise ValueError(f"DOCX file '{file_name}' is missing the main 'word/document.xml' part.")
             except zipfile.BadZipFile:
                 raise ValueError(f"File '{file_name}' is a corrupted or unreadable DOCX archive.")
@@ -205,6 +207,39 @@ class DocumentParser:
         return pages
 
     @classmethod
+    def parse_pptx(cls, file_bytes: bytes, file_name: str) -> List[ParsedPage]:
+        """Extract slide text in slide order from standard PPTX OpenXML files."""
+        try:
+            with zipfile.ZipFile(io.BytesIO(file_bytes)) as archive:
+                slide_names = sorted(
+                    (name for name in archive.namelist() if re.match(r"ppt/slides/slide\d+\.xml$", name)),
+                    key=lambda name: int(re.search(r"slide(\d+)\.xml$", name).group(1)),
+                )
+                pages = []
+                namespace = "{http://schemas.openxmlformats.org/drawingml/2006/main}t"
+                for number, name in enumerate(slide_names, start=1):
+                    root = ET.fromstring(archive.read(name))
+                    text = TextCleaner.clean("\n".join(node.text for node in root.iter(namespace) if node.text))
+                    if text:
+                        heading = text.split("\n", 1)[0][:255]
+                        pages.append(ParsedPage(number, text, heading or f"Slide {number}"))
+                return pages
+        except Exception as exc:
+            raise ValueError(f"Failed to parse PPTX document {file_name}: {exc}") from exc
+
+    @classmethod
+    def parse_csv(cls, file_bytes: bytes, file_name: str) -> List[ParsedPage]:
+        """Preserve CSV headers with every row rather than flattening table structure."""
+        text = file_bytes.decode("utf-8-sig", errors="replace")
+        rows = list(csv.reader(io.StringIO(text)))
+        if not rows:
+            return []
+        headers = rows[0]
+        table_rows = [" | ".join(f"{header}: {value}" for header, value in zip(headers, row)) for row in rows[1:]]
+        content = TextCleaner.clean("Table columns: " + " | ".join(headers) + "\n\n" + "\n".join(table_rows))
+        return [ParsedPage(1, content, "Table")]
+
+    @classmethod
     def parse_file(cls, file_bytes: bytes, file_name: str) -> List[ParsedPage]:
         """Dispatch parser based on file extension with content validation."""
         ext = cls.validate_file_content(file_bytes, file_name)
@@ -213,6 +248,10 @@ class DocumentParser:
             return cls.parse_pdf(file_bytes, file_name)
         elif ext == ".docx":
             return cls.parse_docx(file_bytes, file_name)
+        elif ext == ".pptx":
+            return cls.parse_pptx(file_bytes, file_name)
+        elif ext == ".csv":
+            return cls.parse_csv(file_bytes, file_name)
         elif ext in [".txt", ".md", ".markdown"]:
             text = file_bytes.decode("utf-8", errors="replace")
             return cls.parse_text(text, file_name)

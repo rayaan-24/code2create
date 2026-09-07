@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     # Document Upload & Storage
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE_BYTES: int = 25 * 1024 * 1024  # 25 MB max per file
+    RAG_CHUNK_SIZE_CHARS: int = 3000
+    RAG_CHUNK_OVERLAP_CHARS: int = 350
 
     # JWT Authentication
     JWT_SECRET_KEY: str = "nexora_super_secret_jwt_signing_key_change_in_production_2026"

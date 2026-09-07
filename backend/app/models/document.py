@@ -22,6 +22,23 @@ class Document(Base):
     storage_key: Mapped[str] = mapped_column(String(512), nullable=True)
     source_url: Mapped[str] = mapped_column(String(512), nullable=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
+    # Knowledge-base ingestion lifecycle and university classification metadata.
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=True)
+    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=True)
+    mime_type: Mapped[str] = mapped_column(String(128), nullable=True)
+    category: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
+    department: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
+    school: Mapped[str] = mapped_column(String(128), nullable=True)
+    course: Mapped[str] = mapped_column(String(128), nullable=True)
+    semester: Mapped[str] = mapped_column(String(64), nullable=True)
+    academic_year: Mapped[str] = mapped_column(String(32), nullable=True, index=True)
+    source: Mapped[str] = mapped_column(String(255), nullable=True)
+    ingestion_status: Mapped[str] = mapped_column(String(32), nullable=False, default="UPLOADED", index=True)
+    processing_error: Mapped[str] = mapped_column(Text, nullable=True)
+    chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    embedding_model: Mapped[str] = mapped_column(String(255), nullable=True)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     uploaded_by: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True

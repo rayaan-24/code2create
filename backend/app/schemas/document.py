@@ -62,6 +62,22 @@ class DocumentRead(DocumentBase):
     created_at: datetime
     updated_at: datetime
     versions: List[DocumentVersionRead] = []
+    original_filename: Optional[str] = None
+    file_size_bytes: Optional[int] = None
+    mime_type: Optional[str] = None
+    category: Optional[str] = None
+    department: Optional[str] = None
+    school: Optional[str] = None
+    course: Optional[str] = None
+    semester: Optional[str] = None
+    academic_year: Optional[str] = None
+    source: Optional[str] = None
+    ingestion_status: str = "UPLOADED"
+    processing_error: Optional[str] = None
+    chunk_count: int = 0
+    embedding_model: Optional[str] = None
+    content_hash: Optional[str] = None
+    is_current: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -77,5 +93,6 @@ class DocumentIngestionResponse(BaseModel):
     chunks_created: int
     verification_status: str
     message: str = "Document successfully ingested and indexed"
+    ingestion_status: str = "READY"
 
     model_config = ConfigDict(from_attributes=True)
