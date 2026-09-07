@@ -6,6 +6,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { GlassBadge } from '@/components/ui/GlassBadge';
 import { LoadingSkeleton } from '@/components/shared/LoadingSkeleton';
+import { ErrorBanner } from '@/components/shared/ErrorBanner';
 import {
   Settings as SettingsIcon,
   Volume2,
@@ -25,14 +26,21 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
+      setIsLoading(true);
+      setError(null);
       try {
         const res = await usersApi.getCurrentUser();
         if (res.data) {
           setPreferences(res.data.preferences);
+        } else if (res.error) {
+          setError(res.error);
         }
+      } catch (err: any) {
+        setError(err?.message || 'Failed to load system preferences');
       } finally {
         setIsLoading(false);
       }
@@ -54,10 +62,18 @@ export default function SettingsPage() {
   const handleSave = async () => {
     if (!preferences) return;
     setIsSaving(true);
+    setError(null);
     try {
-      await usersApi.updatePreferences(preferences);
-      setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 2500);
+      const res = await usersApi.updatePreferences(preferences);
+      if (res.data) {
+        setPreferences(res.data.preferences);
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 2500);
+      } else if (res.error) {
+        setError(res.error);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }
@@ -83,6 +99,8 @@ export default function SettingsPage() {
   return (
     <AppShell title="System Settings">
       <div className="p-3.5 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-5 sm:space-y-6">
+        {error && <ErrorBanner message={error} />}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div>
@@ -102,6 +120,7 @@ export default function SettingsPage() {
               onClick={handleSave}
               isLoading={isSaving}
               className="flex-shrink-0"
+              disabled={isLoading || !preferences}
             >
               {savedSuccess ? (
                 <>

@@ -22,6 +22,34 @@ export const chatApi = {
   },
 
   async getMessages(conversationId: string): Promise<ApiResponse<ChatMessage[]>> {
+    const res = await apiRequest<any[]>(`/api/v1/chat/history/${conversationId}`);
+
+    if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      const mapped: ChatMessage[] = res.data.map((msg: any) => ({
+        id: msg.id || `msg_${Date.now()}_${Math.random()}`,
+        conversationId: msg.conversation_id || conversationId,
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content || '',
+        timestamp: msg.created_at || msg.timestamp || new Date().toISOString(),
+        structuredData: msg.structured_data || msg.structuredData || undefined,
+        sources: (msg.sources || []).map((s: any) => ({
+          id: s.id || s.source_id || `src_${Date.now()}`,
+          title: s.title,
+          sourceDocument: s.source_document || s.sourceDocument,
+          pageOrSection: s.page_or_section || s.pageOrSection || undefined,
+          confidenceScore: s.confidence_score || s.confidenceScore || 0.95,
+          verifiedAt: s.verified_at || s.verifiedAt || '2026-09-06',
+        })),
+        externalSources: msg.external_sources || msg.externalSources || undefined,
+        isExternal: msg.is_external || msg.isExternal || false,
+      }));
+      return {
+        data: mapped,
+        error: null,
+        status: 200,
+      };
+    }
+
     const messages = mockInitialMessages[conversationId] || [];
     return createSuccessResponse<ChatMessage[]>(messages);
   },

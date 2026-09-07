@@ -1,10 +1,12 @@
 'use client';
 
-import React from 'react';
-import { Menu, Search, ShieldCheck, Bell } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Menu, Search, ShieldCheck, Bell, LogOut } from 'lucide-react';
 import { GlassButton } from '../ui/GlassButton';
 import { GlassBadge } from '../ui/GlassBadge';
 import { mockCurrentUser } from '@/lib/mock-data';
+import { authApi } from '@/lib/api/auth';
 
 export interface AppNavbarProps {
   onOpenMobileMenu?: () => void;
@@ -12,6 +14,26 @@ export interface AppNavbarProps {
 }
 
 export const AppNavbar: React.FC<AppNavbarProps> = ({ onOpenMobileMenu, title }) => {
+  const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(authApi.isAuthenticated());
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Ignore network errors on logout
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('nexora_auth_token');
+        localStorage.removeItem('nexora_auth_user');
+      }
+      router.push('/login');
+    }
+  };
   return (
     <header className="h-14 sm:h-16 px-3.5 sm:px-6 bg-white/85 backdrop-blur-xl border-b border-[rgba(160,50,85,0.18)] flex items-center justify-between z-30 select-none">
       {/* Left Area */}
@@ -59,6 +81,21 @@ export const AppNavbar: React.FC<AppNavbarProps> = ({ onOpenMobileMenu, title })
           <Bell className="w-4 h-4 text-[#111111]" />
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#EB4D6E] shadow-[0_0_8px_rgba(235,77,110,0.8)]" />
         </GlassButton>
+
+        {/* Logout Button */}
+        {isLoggedIn && (
+          <GlassButton
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-xs font-bold text-[#B82346] hover:text-[#8E1733] hover:bg-[#FFE2E8] border border-[rgba(160,50,85,0.2)] flex items-center gap-1.5 cursor-pointer px-3 py-1.5"
+            aria-label="Log out"
+            title="Log out"
+          >
+            <LogOut className="w-3.5 h-3.5 text-[#EB4D6E]" />
+            <span className="hidden sm:inline">Logout</span>
+          </GlassButton>
+        )}
       </div>
     </header>
   );
