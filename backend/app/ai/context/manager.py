@@ -40,7 +40,9 @@ class ContextManager:
                 "title": "New Community Query",
             }
             if session_id:
-                init_kwargs["id"] = session_id
+                existing = db.query(ConversationSession).filter(ConversationSession.id == session_id).first()
+                if not existing:
+                    init_kwargs["id"] = session_id
             session = ConversationSession(**init_kwargs)
             db.add(session)
             db.commit()

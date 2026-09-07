@@ -87,7 +87,16 @@ export const chatApi = {
       };
     }
 
-    // 2. Fallback when backend is unreachable
+    // If backend returned an error or timeout (status !== 0), propagate it directly to the UI
+    if (res.error && res.status !== 0) {
+      return {
+        data: null,
+        error: res.error,
+        status: res.status,
+      };
+    }
+
+    // 2. Fallback when backend is completely offline / unreachable (status === 0)
     await simulateDelay(400);
     const lower = content.toLowerCase();
     let fallbackStructured: StructuredDataPayload | undefined;

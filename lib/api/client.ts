@@ -4,9 +4,13 @@
  */
 
 function getBaseUrl(): string {
-  const raw = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001').trim().replace(/\/+$/, '');
-  // If base URL already ends with /api/v1, strip it so `${API_BASE_URL}/api/v1/...` doesn't double-prefix
-  return raw.replace(/\/api\/v1$/i, '');
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  let raw = 'http://localhost:8001';
+  if (envUrl && envUrl.trim() && !envUrl.includes('localhost:8000')) {
+    raw = envUrl.trim();
+  }
+  // Strip trailing slashes and redundant /api/v1 suffixes
+  return raw.replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
 }
 
 export const API_BASE_URL = getBaseUrl();
@@ -79,12 +83,15 @@ export async function createErrorResponse<T>(
   };
 }
 
+const DEFAULT_TIMEOUT_MS = 35000;
+
 /**
- * Universal API dispatcher that connects to FastAPI and falls back if disconnected
+ * Universal API dispatcher that connects to FastAPI with finite timeout and error handling.
  */
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<ApiResponse<T>> {
   const token = getAuthToken();
   const headers: Record<string, string> = {
@@ -98,20 +105,35 @@ export async function apiRequest<T>(
 
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const res = await fetch(url, {
       ...options,
       headers,
+      signal: options.signal || controller.signal,
     });
+
+    clearTimeout(timer);
 
     const body = await res.json().catch(() => null);
 
     if (!res.ok) {
-      const errMsg =
+      let errMsg =
         body?.error?.message ||
         body?.detail ||
         body?.message ||
         `Request failed with status ${res.status}`;
+
+      if (res.status === 401) {
+        errMsg = 'Authentication required. Please log in or continue in guest mode.';
+      } else if (res.status === 404) {
+        errMsg = `Requested resource not found at ${endpoint}.`;
+      } else if (res.status >= 500) {
+        errMsg = 'Nexora AI server error. Please try again in a few moments.';
+      }
+
       return {
         data: null,
         error: errMsg,
@@ -128,10 +150,18 @@ export async function apiRequest<T>(
       status: res.status,
     };
   } catch (err: any) {
-    // Network or CORS error
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      return {
+        data: null,
+        error: 'The request took too long. Please try again.',
+        status: 408,
+      };
+    }
+
     return {
       data: null,
-      error: err.message || 'Unable to connect to Nexora server',
+      error: err.message || 'Unable to connect to Nexora backend. Check that the server is running.',
       status: 0,
     };
   }

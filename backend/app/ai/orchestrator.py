@@ -59,10 +59,12 @@ class AIOrchestrator:
         """Execute full end-to-end AI reasoning cycle."""
         start_time = time.time()
         debug_info: Dict[str, Any] = {}
+        logger.info(f"[CHAT] REQUEST RECEIVED: '{raw_message.strip()[:60]}' (user={current_user.id})")
 
         # 1. Rate Limiting Check
         allowed, remaining = rate_limiter.is_allowed(current_user.id)
         if not allowed:
+            logger.warning(f"[CHAT] RATE LIMIT HIT for user {current_user.id}")
             return AIResponse(
                 answer="Rate limit exceeded. Please wait a moment before sending another request.",
                 intent="RATE_LIMITED",
@@ -73,7 +75,7 @@ class AIOrchestrator:
         is_injection, injection_reason = PromptInjectionDetector.inspect(sanitized_input)
 
         if is_injection:
-            logger.warning(f"Neutralized injection attempt by user {current_user.id}: {injection_reason}")
+            logger.warning(f"[CHAT] Neutralized injection attempt by user {current_user.id}: {injection_reason}")
             return AIResponse(
                 answer=(
                     "I cannot fulfill requests that attempt to bypass community safety guidelines, "
@@ -89,6 +91,7 @@ class AIOrchestrator:
             user_id=current_user.id,
             community_id=community.id,
         )
+        logger.info(f"[CHAT] AUTH & SESSION RESOLVED: session_id={session.id}")
 
         # 4. Context Memory Reference Resolution (pronoun & location tracking)
         resolved_query, updated_state = ConversationMemory.resolve_references(
@@ -108,6 +111,7 @@ class AIOrchestrator:
 
         intent = intent_result.intent.value if hasattr(intent_result.intent, "value") else str(intent_result.intent)
         entities = intent_result.entities.model_dump(exclude_none=True)
+        logger.info(f"[CHAT] INTENT DETECTED: {intent} (needs_retrieval={intent_result.needs_retrieval})")
 
         if debug_mode:
             debug_info["resolved_query"] = resolved_query
@@ -127,6 +131,7 @@ class AIOrchestrator:
         ]
 
         if intent_result.needs_retrieval and is_community_intent:
+            logger.info(f"[CHAT] RAG START: query='{resolved_query[:50]}' (community={community.id})")
             hybrid_results = self.retriever.search(
                 db=db,
                 community_id=community.id,
@@ -143,6 +148,7 @@ class AIOrchestrator:
             else:
                 retrieved_context = "No verified community documents found for this query."
                 sources = []
+            logger.info(f"[CHAT] RAG COMPLETE: {len(sources)} chunks retrieved (raw_results={len(hybrid_results)})")
 
             if debug_mode:
                 debug_info["retrieval_chunks_count"] = len(hybrid_results)
@@ -280,6 +286,7 @@ class AIOrchestrator:
         if is_external_query and intent != "LOCATION":
             intent = "EXTERNAL_INFORMATION"
             executed_tool_name = "search_web"
+            logger.info(f"[CHAT] WEB SEARCH START: query='{resolved_query[:50]}'")
             res = tool_registry.execute_tool(
                 "search_web", {"query": resolved_query}, db, community.id, current_user.role
             )
@@ -295,9 +302,13 @@ class AIOrchestrator:
                             payload={"url": item.get("url", "#"), "title": item.get("title", "")},
                         )
                     )
+            logger.info(f"[CHAT] WEB SEARCH COMPLETE: {len(external_sources)} external sources collected")
+
+        logger.info(f"[CHAT] TOOL SELECTION COMPLETE: executed={[t['tool'] for t in tool_results_data]}")
 
         # 8. Intelligent Hybrid Answer Generation via LLM
         history_context = self.context_mgr.get_formatted_history(session)
+        logger.info(f"[CHAT] LLM START: model={settings.effective_llm_model} intent={intent}")
         system_prompt = NEXORA_BASE_SYSTEM_PROMPT.format(
             community_name=community.name,
             community_id=community.id,
@@ -371,6 +382,8 @@ class AIOrchestrator:
                     temperature=settings.SGLANG_TEMPERATURE,
                 )
 
+        logger.info(f"[CHAT] LLM COMPLETE: generated {len(raw_answer)} chars")
+
         # 9. Grounding & Hallucination Guard
         final_answer = GroundingValidator.enforce_grounding(
             query=sanitized_input,
@@ -381,6 +394,7 @@ class AIOrchestrator:
             is_external=is_external_query,
             intent=intent,
         )
+        logger.info(f"[CHAT] GROUNDING VALIDATED: grounded={final_answer != UNVERIFIED_STANDARD_REFUSAL}")
 
         # 10. Update Conversation Memory & Persist Turn
         final_state = ConversationMemory.update_state_after_turn(
@@ -422,7 +436,7 @@ class AIOrchestrator:
         duration = round((time.time() - start_time) * 1000, 2)
         # Observability turn log
         logger.info(
-            f"[CHAT] intent={intent} tools={tools_used_list} llm={settings.effective_llm_model} duration={duration}ms status=success"
+            f"[CHAT] RESPONSE SENT: intent={intent} tools={tools_used_list} llm={settings.effective_llm_model} duration={duration}ms status=success"
         )
 
         return response_obj

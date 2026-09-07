@@ -120,15 +120,50 @@ function ChatContent() {
 
     setMessages((prev) => [...prev, userMsg]);
     setIsAiThinking(true);
+    setError(null);
+
+    // Safety timeout: terminates loading indicator after 38 seconds if network stalls
+    const safetyTimer = setTimeout(() => {
+      setIsAiThinking((prev) => {
+        if (prev) {
+          setError('The request took too long. Please try again.');
+          return false;
+        }
+        return false;
+      });
+    }, 38000);
 
     try {
       const res = await chatApi.sendMessage(activeConvId, text);
+      clearTimeout(safetyTimer);
       if (res.data) {
         setMessages((prev) => [...prev, res.data!]);
+        setError(null);
+      } else if (res.error) {
+        setError(res.error);
+        const errMsg: ChatMessage = {
+          id: `msg_err_${Date.now()}`,
+          conversationId: activeConvId,
+          role: 'assistant',
+          content: `⚠️ ${res.error}`,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, errMsg]);
       }
-    } catch (err) {
-      setError('Unable to receive response from NEXORA.');
+    } catch (err: any) {
+      clearTimeout(safetyTimer);
+      const msg = err?.message || 'Unable to receive response from NEXORA.';
+      setError(msg);
+      const errMsg: ChatMessage = {
+        id: `msg_err_${Date.now()}`,
+        conversationId: activeConvId,
+        role: 'assistant',
+        content: `⚠️ ${msg}`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, errMsg]);
     } finally {
+      clearTimeout(safetyTimer);
       setIsAiThinking(false);
     }
   };

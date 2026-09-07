@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     MAX_CONTEXT_TOKENS: int = 4096
     RAG_MIN_RELEVANCE_SCORE: float = 0.35
     MAX_TOOL_CALLS: int = 5
-    AI_REQUEST_TIMEOUT: int = 8
+    AI_REQUEST_TIMEOUT: int = 35
     RATE_LIMIT_PER_MINUTE: int = 60
 
     # Optional AI LLM Provider Keys & Endpoints (Groq, OpenAI, SGLang, OpenRouter, etc.)

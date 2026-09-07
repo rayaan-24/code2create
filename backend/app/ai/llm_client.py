@@ -71,7 +71,7 @@ class LLMClient:
         }
 
         endpoint = self._get_endpoint("/chat/completions")
-        conn_timeout = min(3.0, float(self.timeout))
+        conn_timeout = min(10.0, float(self.timeout))
         read_timeout = float(self.timeout)
         timeout_config = httpx.Timeout(connect=conn_timeout, read=read_timeout, write=conn_timeout, pool=conn_timeout)
 
@@ -135,8 +135,9 @@ class LLMClient:
         }
 
         endpoint = self._get_endpoint("/chat/completions")
-        conn_timeout = min(5.0, float(self.timeout))
-        timeout_config = httpx.Timeout(connect=conn_timeout, read=self.timeout, write=self.timeout, pool=self.timeout)
+        conn_timeout = min(10.0, float(self.timeout))
+        read_timeout = float(self.timeout)
+        timeout_config = httpx.Timeout(connect=conn_timeout, read=read_timeout, write=conn_timeout, pool=conn_timeout)
 
         try:
             async with httpx.AsyncClient(timeout=timeout_config) as client:
