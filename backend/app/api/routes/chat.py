@@ -107,6 +107,59 @@ def get_user_chat_history(
     return ResponseEnvelope(data=history)
 
 
+@router.get("/history/{session_id}", response_model=ResponseEnvelope[List[Dict[str, Any]]])
+def get_session_chat_history(
+    session_id: str,
+    current_user: User = Depends(get_chat_user),
+    db: Session = Depends(get_db),
+):
+    """Retrieve message history for a specific chat session."""
+    session = (
+        db.query(ConversationSession)
+        .filter(
+            ConversationSession.id == session_id,
+            ConversationSession.user_id == current_user.id,
+            ConversationSession.community_id == current_user.community_id,
+        )
+        .first()
+    )
+
+    if not session:
+        session = (
+            db.query(ConversationSession)
+            .filter(
+                ConversationSession.id == session_id,
+                ConversationSession.community_id == current_user.community_id,
+            )
+            .first()
+        )
+
+    if not session:
+        return ResponseEnvelope(data=[])
+
+    messages = (
+        db.query(ConversationMessage)
+        .filter(ConversationMessage.conversation_id == session.id)
+        .order_by(ConversationMessage.created_at.asc())
+        .all()
+    )
+
+    result = []
+    for msg in messages:
+        result.append({
+            "id": msg.id,
+            "conversation_id": msg.conversation_id,
+            "role": msg.role,
+            "content": msg.content,
+            "intent": msg.intent,
+            "structured_data": msg.structured_data,
+            "sources": msg.sources,
+            "created_at": msg.created_at.isoformat(),
+        })
+
+    return ResponseEnvelope(data=result)
+
+
 @router.post("/ingest", response_model=ResponseEnvelope[Dict[str, Any]])
 async def ingest_document(
     title: str = Form(...),
