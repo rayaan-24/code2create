@@ -242,8 +242,8 @@ class AIOrchestrator:
                     )
 
         # 8. Grounded LLM Answer Generation
-        # If community question has zero verified evidence, immediately return refusal fallback
-        if (intent == "QUESTION" or (intent_result.needs_retrieval and not executed_tool_name)) and not sources and not is_external_query:
+        # If community factual question has zero verified evidence and no tool results, return refusal fallback
+        if intent == "QUESTION" and not sources and not is_external_query and not tool_results_data:
             raw_answer = UNVERIFIED_STANDARD_REFUSAL
         else:
             history_context = self.context_mgr.get_formatted_history(session)

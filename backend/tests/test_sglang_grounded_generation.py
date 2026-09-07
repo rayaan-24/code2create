@@ -511,3 +511,87 @@ def test_context_size_limiting():
     # Test character budget capping
     context_str_small, sources_small = GroundingContextBuilder.build_grounded_context(chunks, max_chunks=10, max_tokens=100)
     assert len(sources_small) <= 3
+
+
+def test_source_metadata_preservation():
+    """
+    STEP 15.14: Verify that GroundingContextBuilder preserves all rich source metadata
+    including document title, version, page, section, and retrieval sources.
+    """
+    chunk = KnowledgeChunk(
+        id="c_meta_test",
+        document_id="doc_101",
+        community_id="comm_vit",
+        content="Hostel curfew is 9:00 PM for all undergraduate students.",
+        section="Hostel Regulations",
+        page_number=22,
+        chunk_index=4,
+        verification_status="VERIFIED",
+    )
+    chunk.metadata_dict = {"document_title": "Residential Handbook", "document_version": 3}
+
+    from app.ai.retrieval.vector_search import ScoredChunk
+    scored = ScoredChunk(chunk=chunk, score=0.88)
+    scored.retrieval_sources = ["semantic", "keyword"]
+
+    context_str, sources = GroundingContextBuilder.build_grounded_context([scored])
+
+    assert len(sources) == 1
+    s = sources[0]
+    assert s.id == "S1"
+    assert s.chunk_id == "c_meta_test"
+    assert s.document_id == "doc_101"
+    assert s.document_title == "Residential Handbook"
+    assert s.document_version == 3
+    assert s.page_number == 22
+    assert s.section == "Hostel Regulations"
+    assert s.verified is True
+    assert s.retrieval_sources == ["semantic", "keyword"]
+
+
+@pytest.mark.asyncio
+async def test_real_nexora_id_replacement_flow(db_session_sglang, test_user_and_community):
+    """
+    STEP 17: Realistic institutional validation:
+    Context: 'SJT-G12 is the ID card replacement counter located on the SJT Ground Floor.'
+    Question: 'Where do I replace my ID card?'
+    Verifies that answer cites [S1] and conveys Ground Floor and SJT-G12 location.
+    """
+    user, comm = test_user_and_community
+    doc = Document(
+        id="doc_id_official",
+        community_id=comm.id,
+        title="Student Support Manual",
+        file_name="support.pdf",
+        file_type="application/pdf",
+        version=1,
+        is_active=True,
+    )
+    text = "SJT-G12 is the ID card replacement counter located on the SJT Ground Floor."
+    chunk = KnowledgeChunk(
+        id="c_sjt_g12",
+        document_id=doc.id,
+        community_id=comm.id,
+        content=text,
+        embedding=embedding_provider.embed_text(text),
+        section="ID Card Replacement",
+        page_number=1,
+        verification_status="VERIFIED",
+    )
+    db_session_sglang.add_all([doc, chunk])
+    db_session_sglang.commit()
+
+    orchestrator = AIOrchestrator()
+    response = await orchestrator.process_chat(
+        db=db_session_sglang,
+        current_user=user,
+        community=comm,
+        raw_message="Where do I replace my ID card?",
+    )
+
+    assert response.grounded is True
+    assert "[S1]" in response.answer
+    assert "SJT" in response.answer or "G12" in response.answer or "Ground Floor" in response.answer
+    assert len(response.sources) == 1
+    assert response.sources[0].id == "S1"
+
