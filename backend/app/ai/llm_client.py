@@ -71,8 +71,9 @@ class LLMClient:
         }
 
         endpoint = self._get_endpoint("/chat/completions")
-        conn_timeout = min(10.0, float(self.timeout))
-        read_timeout = float(self.timeout)
+        is_local = "localhost" in endpoint or "127.0.0.1" in endpoint
+        conn_timeout = 2.5 if (is_local and not self.api_key) else min(5.0, float(self.timeout))
+        read_timeout = min(35.0, float(self.timeout))
         timeout_config = httpx.Timeout(connect=conn_timeout, read=read_timeout, write=conn_timeout, pool=conn_timeout)
 
         try:
@@ -135,8 +136,9 @@ class LLMClient:
         }
 
         endpoint = self._get_endpoint("/chat/completions")
-        conn_timeout = min(10.0, float(self.timeout))
-        read_timeout = float(self.timeout)
+        is_local = "localhost" in endpoint or "127.0.0.1" in endpoint
+        conn_timeout = 2.5 if (is_local and not self.api_key) else min(5.0, float(self.timeout))
+        read_timeout = min(35.0, float(self.timeout))
         timeout_config = httpx.Timeout(connect=conn_timeout, read=read_timeout, write=conn_timeout, pool=conn_timeout)
 
         try:

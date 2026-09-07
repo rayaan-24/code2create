@@ -110,11 +110,19 @@ function ChatContent() {
   }, [initialPrompt]);
 
   const handleSendMessage = async (text: string) => {
+    if (!text || !text.trim() || isAiThinking) {
+      console.warn('[Chat Page] Submission ignored: request pending or prompt empty.');
+      return;
+    }
+
+    const sanitizedText = text.strip ? text.strip() : text.trim();
+    console.log('[Chat Page] Sending chat prompt:', sanitizedText);
+
     const userMsg: ChatMessage = {
       id: `msg_${Date.now()}`,
       conversationId: activeConvId,
       role: 'user',
-      content: text,
+      content: sanitizedText,
       timestamp: new Date().toISOString(),
     };
 
@@ -122,19 +130,19 @@ function ChatContent() {
     setIsAiThinking(true);
     setError(null);
 
-    // Safety timeout: terminates loading indicator after 38 seconds if network stalls
+    // Safety timeout: terminates loading indicator after 62 seconds if network stalls
     const safetyTimer = setTimeout(() => {
       setIsAiThinking((prev) => {
         if (prev) {
-          setError('The request took too long. Please try again.');
+          setError('The request timed out (60s limit). Please check server connection or try again.');
           return false;
         }
         return false;
       });
-    }, 38000);
+    }, 62000);
 
     try {
-      const res = await chatApi.sendMessage(activeConvId, text);
+      const res = await chatApi.sendMessage(activeConvId, sanitizedText);
       clearTimeout(safetyTimer);
       if (res.data) {
         setMessages((prev) => [...prev, res.data!]);

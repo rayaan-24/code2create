@@ -46,6 +46,8 @@ class AIResponse(BaseModel):
 
     answer: str
     intent: str = "QUESTION"
+    session_id: Optional[str] = None
+    conversation_id: Optional[str] = None
     actions: List[ActionItem] = Field(default_factory=list)
     sources: List[SourceAttribution] = Field(default_factory=list)
     external_sources: List[Dict[str, Any]] = Field(default_factory=list)

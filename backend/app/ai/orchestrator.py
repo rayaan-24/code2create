@@ -1,7 +1,9 @@
 import time
 import logging
 import re
-from typing import Optional, Dict, Any, List
+import uuid
+import asyncio
+from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -48,6 +50,73 @@ class AIOrchestrator:
         )
         self.reranker = Reranker(top_k=settings.RERANK_TOP_K)
 
+    def _quick_intent_check(self, query: str) -> Optional[Tuple[IntentClassificationResult, Optional[str]]]:
+        """
+        Rule-based fast intent matching for basic greetings and simple queries
+        to avoid an extra LLM call for intent classification.
+        Returns (IntentClassificationResult, direct_answer_if_short_circuit).
+        """
+        clean = query.strip().lower()
+        clean_nopunct = re.sub(r"[^\w\s]", "", clean).strip()
+
+        # 1. Greetings & Pleasantries short-circuit
+        greetings = {"hello", "hi", "hey", "good morning", "good afternoon", "good evening", "greetings", "howdy"}
+        thanks = {"thanks", "thank you", "thanks a lot", "thank you so much", "thx"}
+        identity = {"who are you", "what is your name", "what are you", "who made you"}
+
+        if clean_nopunct in greetings or any(clean_nopunct == g for g in greetings):
+            result = IntentClassificationResult(
+                intent=IntentType.GENERAL_CHAT,
+                confidence=1.0,
+                needs_retrieval=False,
+                needs_tool=False,
+            )
+            answer = "Hello! I'm NEXORA, your community AI assistant. How can I help you today?"
+            return result, answer
+
+        if clean_nopunct in thanks or any(clean_nopunct == t for t in thanks):
+            result = IntentClassificationResult(
+                intent=IntentType.GENERAL_CHAT,
+                confidence=1.0,
+                needs_retrieval=False,
+                needs_tool=False,
+            )
+            answer = "You're welcome! Let me know if you need help with anything else."
+            return result, answer
+
+        if clean_nopunct in identity:
+            result = IntentClassificationResult(
+                intent=IntentType.GENERAL_CHAT,
+                confidence=1.0,
+                needs_retrieval=False,
+                needs_tool=False,
+            )
+            answer = "I am NEXORA, an intelligent community AI assistant designed to help with campus navigation, procedures, services, and general inquiries."
+            return result, answer
+
+        # 2. Basic general knowledge/coding queries short-circuit
+        if clean_nopunct in {"what is python", "what is python language", "tell me about python"}:
+            result = IntentClassificationResult(
+                intent=IntentType.CODING,
+                confidence=1.0,
+                needs_retrieval=False,
+                needs_tool=False,
+            )
+            answer = "Python is a high-level, interpreted programming language known for readability, clear syntax, and wide ecosystem support across web development, data science, AI, and automation."
+            return result, answer
+
+        # 3. Simple General Chat detection without direct short-circuit answer
+        if any(clean_nopunct.startswith(g) for g in ["hello ", "hi ", "hey "]):
+            result = IntentClassificationResult(
+                intent=IntentType.GENERAL_CHAT,
+                confidence=0.95,
+                needs_retrieval=False,
+                needs_tool=False,
+            )
+            return result, None
+
+        return None
+
     async def process_chat(
         self,
         db: Session,
@@ -59,13 +128,14 @@ class AIOrchestrator:
     ) -> AIResponse:
         """Execute full end-to-end AI reasoning cycle."""
         start_time = time.time()
+        correlation_id = f"NEXORA-CHAT-{uuid.uuid4().hex[:8]}"
         debug_info: Dict[str, Any] = {}
-        logger.info(f"[CHAT] REQUEST RECEIVED: '{raw_message.strip()[:60]}' (user={current_user.id})")
+        logger.info(f"[{correlation_id}] REQUEST RECEIVED: '{raw_message.strip()[:60]}' (user={current_user.id})")
 
         # 1. Rate Limiting Check
         allowed, remaining = rate_limiter.is_allowed(current_user.id)
         if not allowed:
-            logger.warning(f"[CHAT] RATE LIMIT HIT for user {current_user.id}")
+            logger.warning(f"[{correlation_id}] RATE LIMIT HIT for user {current_user.id}")
             return AIResponse(
                 answer="Rate limit exceeded. Please wait a moment before sending another request.",
                 intent="RATE_LIMITED",
@@ -76,7 +146,7 @@ class AIOrchestrator:
         is_injection, injection_reason = PromptInjectionDetector.inspect(sanitized_input)
 
         if is_injection:
-            logger.warning(f"[CHAT] Neutralized injection attempt by user {current_user.id}: {injection_reason}")
+            logger.warning(f"[{correlation_id}] Neutralized injection attempt by user {current_user.id}: {injection_reason}")
             return AIResponse(
                 answer=(
                     "I cannot fulfill requests that attempt to bypass community safety guidelines, "
@@ -92,7 +162,7 @@ class AIOrchestrator:
             user_id=current_user.id,
             community_id=community.id,
         )
-        logger.info(f"[CHAT] AUTH & SESSION RESOLVED: session_id={session.id}")
+        logger.info(f"[{correlation_id}] AUTH & SESSION RESOLVED: session_id={session.id}")
 
         # 4. Context Memory Reference Resolution (pronoun & location tracking)
         resolved_query, updated_state = ConversationMemory.resolve_references(
@@ -100,19 +170,59 @@ class AIOrchestrator:
             state=state,
         )
 
-        # 5. Intent Classification & Entity Extraction
-        intent_prompt = INTENT_CLASSIFICATION_PROMPT.format(
-            conversation_state=updated_state.model_dump_json(),
-            user_message=resolved_query,
-        )
-        intent_result: IntentClassificationResult = await llm_client.generate_structured(
-            prompt=intent_prompt,
-            schema=IntentClassificationResult,
-        )
+        # 5. Fast Intent Matching & Short-Circuit Check
+        t_routing_start = time.time()
+        quick_match = self._quick_intent_check(resolved_query)
 
-        intent = intent_result.intent.value if hasattr(intent_result.intent, "value") else str(intent_result.intent)
-        entities = intent_result.entities.model_dump(exclude_none=True)
-        logger.info(f"[CHAT] INTENT DETECTED: {intent} (needs_retrieval={intent_result.needs_retrieval})")
+        if quick_match:
+            intent_result, direct_answer = quick_match
+            intent = intent_result.intent.value if hasattr(intent_result.intent, "value") else str(intent_result.intent)
+            entities = {}
+            t_routing_ms = round((time.time() - t_routing_start) * 1000, 2)
+
+            if direct_answer:
+                # Immediate short-circuit: skip RAG, tools, ElevenLabs, and LLM calls entirely
+                response_obj = AIResponse(
+                    answer=direct_answer,
+                    intent=intent,
+                    actions=[],
+                    sources=[],
+                    external_sources=[],
+                    tools_used=[],
+                    is_external=False,
+                    grounded=True,
+                    retrieval_count=0,
+                )
+                try:
+                    self.context_mgr.persist_turn(
+                        db=db,
+                        session=session,
+                        state=updated_state,
+                        user_query=sanitized_input,
+                        assistant_response=response_obj,
+                    )
+                except Exception as db_err:
+                    logger.warning(f"[{correlation_id}] Non-critical DB persist turn error: {db_err}")
+
+                t_total_ms = round((time.time() - start_time) * 1000, 2)
+                logger.info(
+                    f"[{correlation_id}] received: 0ms | routing: {t_routing_ms}ms | rag: skipped | tools: skipped | llm: skipped | total: {t_total_ms}ms"
+                )
+                return response_obj
+        else:
+            intent_prompt = INTENT_CLASSIFICATION_PROMPT.format(
+                conversation_state=updated_state.model_dump_json(),
+                user_message=resolved_query,
+            )
+            intent_result: IntentClassificationResult = await llm_client.generate_structured(
+                prompt=intent_prompt,
+                schema=IntentClassificationResult,
+            )
+            intent = intent_result.intent.value if hasattr(intent_result.intent, "value") else str(intent_result.intent)
+            entities = intent_result.entities.model_dump(exclude_none=True)
+            t_routing_ms = round((time.time() - t_routing_start) * 1000, 2)
+
+        logger.info(f"[{correlation_id}] INTENT DETECTED: {intent} (needs_retrieval={intent_result.needs_retrieval})")
 
         if debug_mode:
             debug_info["resolved_query"] = resolved_query
@@ -121,8 +231,7 @@ class AIOrchestrator:
             debug_info["current_location"] = updated_state.current_location
             debug_info["current_destination"] = updated_state.current_destination
 
-        # 6. Selective Hybrid RAG Retrieval (Knowledge Chunks)
-        # RAG is NOT the gatekeeper for every question. Only retrieve for organization/campus queries.
+        # 6. Selective Hybrid RAG Retrieval with Timeout (Max 10s)
         retrieved_context = "No community documents retrieved."
         sources: List[SourceAttribution] = []
 
@@ -132,31 +241,47 @@ class AIOrchestrator:
             "ANNOUNCEMENT", "REQUEST", "UNKNOWN", "EDUCATION", "GENERAL_KNOWLEDGE"
         ] or intent_result.needs_retrieval
 
+        t_rag_ms: Any = "skipped"
         if intent_result.needs_retrieval and is_community_intent:
-            logger.info(f"[CHAT] RAG START: query='{resolved_query[:50]}' (community={community.id})")
-            hybrid_results = self.retriever.search(
-                db=db,
-                community_id=community.id,
-                query=resolved_query,
-                top_k=settings.RERANK_TOP_K,
-                min_score=settings.RAG_MIN_RELEVANCE_SCORE,
-            )
-            if hybrid_results:
-                retrieved_context, sources = GroundingContextBuilder.build_grounded_context(
-                    retrieved_results=hybrid_results,
-                    max_chunks=settings.MAX_CONTEXT_CHUNKS,
-                    max_tokens=settings.MAX_CONTEXT_TOKENS,
-                )
-            else:
-                retrieved_context = "No verified community documents found for this query."
+            t_rag_start = time.time()
+            logger.info(f"[{correlation_id}] RAG START: query='{resolved_query[:50]}' (community={community.id})")
+            try:
+                def _run_search():
+                    return self.retriever.search(
+                        db=db,
+                        community_id=community.id,
+                        query=resolved_query,
+                        top_k=settings.RERANK_TOP_K,
+                        min_score=settings.RAG_MIN_RELEVANCE_SCORE,
+                    )
+                hybrid_results = await asyncio.wait_for(asyncio.to_thread(_run_search), timeout=10.0)
+                if hybrid_results:
+                    retrieved_context, sources = GroundingContextBuilder.build_grounded_context(
+                        retrieved_results=hybrid_results,
+                        max_chunks=settings.MAX_CONTEXT_CHUNKS,
+                        max_tokens=settings.MAX_CONTEXT_TOKENS,
+                    )
+                else:
+                    retrieved_context = "No verified community documents found for this query."
+                    sources = []
+            except asyncio.TimeoutError:
+                logger.warning(f"[{correlation_id}] RAG retrieval timed out after 10s. Continuing with general LLM response.")
+                retrieved_context = "No community documents retrieved."
                 sources = []
-            logger.info(f"[CHAT] RAG COMPLETE: {len(sources)} chunks retrieved (raw_results={len(hybrid_results)})")
+            except Exception as rag_err:
+                logger.warning(f"[{correlation_id}] RAG retrieval error ({rag_err}). Continuing with general LLM response.")
+                retrieved_context = "No community documents retrieved."
+                sources = []
+
+            t_rag_ms = round((time.time() - t_rag_start) * 1000, 2)
+            logger.info(f"[{correlation_id}] RAG COMPLETE: {len(sources)} chunks retrieved (duration={t_rag_ms}ms)")
 
             if debug_mode:
-                debug_info["retrieval_chunks_count"] = len(hybrid_results)
+                debug_info["retrieval_chunks_count"] = len(sources)
                 debug_info["top_sources"] = [s.title for s in sources]
 
-        # 7. AI Tool Execution (Location, Route, Procedure, Service, Web)
+        # 7. AI Tool Execution with Try-Except & Timeouts
+        t_tools_start = time.time()
         tool_registry = ToolRegistry(max_tool_calls=settings.MAX_TOOL_CALLS)
         tool_results_data: List[Dict[str, Any]] = []
         structured_card: Optional[Dict[str, Any]] = None
@@ -164,153 +289,164 @@ class AIOrchestrator:
         executed_tool_name: Optional[str] = None
         executed_tool_result: Optional[Dict[str, Any]] = None
 
-        # A. Multi-Tool Execution
-        if intent == "MULTI_TOOL":
-            target_loc = entities.get("location") or ("Library" if "library" in resolved_query.lower() else "Student Services")
-            loc_res = tool_registry.execute_tool(
-                "get_location", {"query": target_loc}, db, community.id, current_user.role
-            )
-            if loc_res.status == "success" and loc_res.data:
-                tool_results_data.append({"tool": "get_location", "result": loc_res.data})
-                structured_card = {"type": "location", "location": loc_res.data}
+        try:
+            # A. Multi-Tool Execution
+            if intent == "MULTI_TOOL":
+                target_loc = entities.get("location") or ("Library" if "library" in resolved_query.lower() else "Student Services")
+                loc_res = tool_registry.execute_tool(
+                    "get_location", {"query": target_loc}, db, community.id, current_user.role
+                )
+                if loc_res.status == "success" and loc_res.data:
+                    tool_results_data.append({"tool": "get_location", "result": loc_res.data})
+                    structured_card = {"type": "location", "location": loc_res.data}
+                    executed_tool_name = "get_location"
+
+                start_loc = updated_state.current_location or "Library"
+                dest_loc = target_loc
+                route_res = tool_registry.execute_tool(
+                    "calculate_route",
+                    {"start_location": start_loc, "destination": dest_loc},
+                    db,
+                    community.id,
+                    current_user.role,
+                )
+                if route_res.status == "success" and route_res.data:
+                    tool_results_data.append({"tool": "calculate_route", "result": route_res.data})
+                    if not structured_card:
+                        structured_card = {"type": "navigation", "navigationRoute": route_res.data}
+                    actions.append(
+                        ActionItem(
+                            type=ActionType.NAVIGATE,
+                            label=f"Get Directions to {target_loc}",
+                            payload={"destination": target_loc, "route": route_res.data},
+                        )
+                    )
+
+            # B. Procedure Execution
+            elif intent == "PROCEDURE":
+                executed_tool_name = "get_procedure"
+                target_p = entities.get("procedure") or resolved_query
+                res = tool_registry.execute_tool(
+                    "get_procedure", {"procedure_title": target_p}, db, community.id, current_user.role
+                )
+                if res.status == "success" and res.data:
+                    executed_tool_result = res.data
+                    tool_results_data.append({"tool": "get_procedure", "result": res.data})
+                    structured_card = {"type": "procedure", "procedure": res.data}
+                    actions.append(
+                        ActionItem(
+                            type=ActionType.NAVIGATE,
+                            label=f"Navigate to {res.data.get('responsibleOffice', 'Office')}",
+                            payload={"destination": res.data.get("responsibleOffice"), "room": "G12"},
+                        )
+                    )
+
+            # C. Location Execution
+            elif intent == "LOCATION":
                 executed_tool_name = "get_location"
-
-            start_loc = updated_state.current_location or "Library"
-            dest_loc = target_loc
-            route_res = tool_registry.execute_tool(
-                "calculate_route",
-                {"start_location": start_loc, "destination": dest_loc},
-                db,
-                community.id,
-                current_user.role,
-            )
-            if route_res.status == "success" and route_res.data:
-                tool_results_data.append({"tool": "calculate_route", "result": route_res.data})
-                if not structured_card:
-                    structured_card = {"type": "navigation", "navigationRoute": route_res.data}
-                actions.append(
-                    ActionItem(
-                        type=ActionType.NAVIGATE,
-                        label=f"Get Directions to {target_loc}",
-                        payload={"destination": target_loc, "route": route_res.data},
-                    )
+                target_l = entities.get("location") or updated_state.current_destination or resolved_query
+                res = tool_registry.execute_tool(
+                    "get_location", {"query": target_l}, db, community.id, current_user.role
                 )
-
-        # B. Procedure Execution
-        elif intent == "PROCEDURE":
-            executed_tool_name = "get_procedure"
-            target_p = entities.get("procedure") or resolved_query
-            res = tool_registry.execute_tool(
-                "get_procedure", {"procedure_title": target_p}, db, community.id, current_user.role
-            )
-            if res.status == "success" and res.data:
-                executed_tool_result = res.data
-                tool_results_data.append({"tool": "get_procedure", "result": res.data})
-                structured_card = {"type": "procedure", "procedure": res.data}
-                actions.append(
-                    ActionItem(
-                        type=ActionType.NAVIGATE,
-                        label=f"Navigate to {res.data.get('responsibleOffice', 'Office')}",
-                        payload={"destination": res.data.get("responsibleOffice"), "room": "G12"},
+                if res.status == "success" and res.data:
+                    executed_tool_result = res.data
+                    tool_results_data.append({"tool": "get_location", "result": res.data})
+                    structured_card = {"type": "location", "location": res.data}
+                    actions.append(
+                        ActionItem(
+                            type=ActionType.NAVIGATE,
+                            label=f"Get Directions to {res.data.get('name')}",
+                            payload={"destination": res.data.get('name'), "room": res.data.get('room')},
+                        )
                     )
+
+            # D. Navigation Execution
+            elif intent == "NAVIGATION":
+                executed_tool_name = "calculate_route"
+                start_loc = updated_state.current_location or "Library"
+                dest_loc = updated_state.current_destination or "Student Services Center (SJT-G12)"
+                res = tool_registry.execute_tool(
+                    "calculate_route",
+                    {"start_location": start_loc, "destination": dest_loc},
+                    db,
+                    community.id,
+                    current_user.role,
                 )
+                if res.status == "success" and res.data:
+                    executed_tool_result = res.data
+                    tool_results_data.append({"tool": "calculate_route", "result": res.data})
+                    structured_card = {"type": "navigation", "navigationRoute": res.data}
 
-        # C. Location Execution
-        elif intent == "LOCATION":
-            executed_tool_name = "get_location"
-            target_l = entities.get("location") or updated_state.current_destination or resolved_query
-            res = tool_registry.execute_tool(
-                "get_location", {"query": target_l}, db, community.id, current_user.role
-            )
-            if res.status == "success" and res.data:
-                executed_tool_result = res.data
-                tool_results_data.append({"tool": "get_location", "result": res.data})
-                structured_card = {"type": "location", "location": res.data}
-                actions.append(
-                    ActionItem(
-                        type=ActionType.NAVIGATE,
-                        label=f"Get Directions to {res.data.get('name')}",
-                        payload={"destination": res.data.get("name"), "room": res.data.get("room")},
-                    )
+            # E. Person Lookup
+            elif intent == "PERSON_LOOKUP":
+                executed_tool_name = "get_person"
+                target_person = entities.get("person_name") or resolved_query
+                res = tool_registry.execute_tool(
+                    "get_person", {"name_or_role": target_person}, db, community.id, current_user.role
                 )
+                if res.status == "success" and res.data:
+                    executed_tool_result = res.data
+                    tool_results_data.append({"tool": "get_person", "result": res.data})
+                    structured_card = {"type": "person", "person": res.data}
 
-        # D. Navigation Execution
-        elif intent == "NAVIGATION":
-            executed_tool_name = "calculate_route"
-            start_loc = updated_state.current_location or "Library"
-            dest_loc = updated_state.current_destination or "Student Services Center (SJT-G12)"
-            res = tool_registry.execute_tool(
-                "calculate_route",
-                {"start_location": start_loc, "destination": dest_loc},
-                db,
-                community.id,
-                current_user.role,
-            )
-            if res.status == "success" and res.data:
-                executed_tool_result = res.data
-                tool_results_data.append({"tool": "calculate_route", "result": res.data})
-                structured_card = {"type": "navigation", "navigationRoute": res.data}
+            # F. Service Lookup
+            elif intent == "SERVICE_LOOKUP":
+                executed_tool_name = "get_service"
+                target_s = entities.get("service") or resolved_query
+                res = tool_registry.execute_tool(
+                    "get_service", {"service_name": target_s}, db, community.id, current_user.role
+                )
+                if res.status == "success" and res.data:
+                    executed_tool_result = res.data
+                    tool_results_data.append({"tool": "get_service", "result": res.data})
+                    structured_card = {"type": "service", "service": res.data}
+        except Exception as tool_err:
+            logger.warning(f"[{correlation_id}] Internal tool execution error ({tool_err}). Continuing.")
 
-        # E. Person Lookup
-        elif intent == "PERSON_LOOKUP":
-            executed_tool_name = "get_person"
-            target_person = entities.get("person_name") or resolved_query
-            res = tool_registry.execute_tool(
-                "get_person", {"name_or_role": target_person}, db, community.id, current_user.role
-            )
-            if res.status == "success" and res.data:
-                executed_tool_result = res.data
-                tool_results_data.append({"tool": "get_person", "result": res.data})
-                structured_card = {"type": "person", "person": res.data}
-
-        # F. Service Lookup
-        elif intent == "SERVICE_LOOKUP":
-            executed_tool_name = "get_service"
-            target_s = entities.get("service") or resolved_query
-            res = tool_registry.execute_tool(
-                "get_service", {"service_name": target_s}, db, community.id, current_user.role
-            )
-            if res.status == "success" and res.data:
-                executed_tool_result = res.data
-                tool_results_data.append({"tool": "get_service", "result": res.data})
-                structured_card = {"type": "service", "service": res.data}
-
-        # G. Web Search Execution
+        # G. Web Search Execution with 10s strict timeout
         external_sources: List[Dict[str, Any]] = []
         is_external_query = (
-            intent in ["WEB_SEARCH", "EXTERNAL_INFORMATION"] or 
+            intent in ["WEB_SEARCH", "EXTERNAL_INFORMATION"] or
             any(k in resolved_query.lower() for k in [
-                "latest", "today", "current", "recent", "yesterday", "this week", 
-                "weather", "live", "ceo of", "prime minister", "president", 
+                "latest", "today", "current", "recent", "yesterday", "this week",
+                "weather", "live", "ceo of", "prime minister", "president",
                 "price", "ranking", "who won", "score", "match", "passport", "visa"
             ])
         )
         if is_external_query and intent != "LOCATION":
             intent = "EXTERNAL_INFORMATION"
             executed_tool_name = "search_web"
-            logger.info(f"[CHAT] WEB SEARCH START: query='{resolved_query[:50]}'")
-            res = tool_registry.execute_tool(
-                "search_web", {"query": resolved_query}, db, community.id, current_user.role
-            )
-            if res.status == "success" and res.data:
-                executed_tool_result = res.data
-                tool_results_data.append({"tool": "search_web", "result": res.data})
-                for item in res.data.get("results", [])[:3]:
-                    external_sources.append(item)
-                    actions.append(
-                        ActionItem(
-                            type=ActionType.OPEN_WEB_SOURCE,
-                            label=f"Source: {item.get('source', 'Web')}",
-                            payload={"url": item.get("url", "#"), "title": item.get("title", "")},
-                        )
+            logger.info(f"[{correlation_id}] WEB SEARCH START: query='{resolved_query[:50]}'")
+            try:
+                def _run_web():
+                    return tool_registry.execute_tool(
+                        "search_web", {"query": resolved_query}, db, community.id, current_user.role
                     )
-            logger.info(f"[CHAT] WEB SEARCH COMPLETE: {len(external_sources)} external sources collected")
+                res = await asyncio.wait_for(asyncio.to_thread(_run_web), timeout=10.0)
+                if res and res.status == "success" and res.data:
+                    executed_tool_result = res.data
+                    tool_results_data.append({"tool": "search_web", "result": res.data})
+                    for item in res.data.get("results", [])[:3]:
+                        external_sources.append(item)
+                        actions.append(
+                            ActionItem(
+                                type=ActionType.OPEN_WEB_SOURCE,
+                                label=f"Source: {item.get('source', 'Web')}",
+                                payload={"url": item.get("url", "#"), "title": item.get("title", "")},
+                            )
+                        )
+            except asyncio.TimeoutError:
+                logger.warning(f"[{correlation_id}] SerpApi web search timed out after 10s. Continuing.")
+            except Exception as search_err:
+                logger.warning(f"[{correlation_id}] Web search tool error ({search_err}). Continuing.")
 
-        logger.info(f"[CHAT] TOOL SELECTION COMPLETE: executed={[t['tool'] for t in tool_results_data]}")
+        t_tools_ms = round((time.time() - t_tools_start) * 1000, 2)
+        logger.info(f"[{correlation_id}] TOOL SELECTION COMPLETE: executed={[t['tool'] for t in tool_results_data]} (duration={t_tools_ms}ms)")
 
         # 8. Intelligent Hybrid Answer Generation via LLM
+        t_llm_start = time.time()
         history_context = self.context_mgr.get_formatted_history(session)
-        logger.info(f"[CHAT] LLM START: model={settings.effective_llm_model} intent={intent}")
+        logger.info(f"[{correlation_id}] LLM START: model={settings.effective_llm_model} intent={intent}")
         system_prompt = NEXORA_BASE_SYSTEM_PROMPT.format(
             community_name=community.name,
             community_id=community.id,
@@ -320,70 +456,8 @@ class AIOrchestrator:
             preferred_language="English",
         )
 
-        # Route to appropriate response prompt
-        if sources:
-            answer_prompt = GROUNDED_RAG_PROMPT.format(
-                user_query=sanitized_input,
-                conversation_context=history_context,
-                retrieved_knowledge=retrieved_context,
-                tool_results=str(tool_results_data) if tool_results_data else "No specific tool results.",
-            )
-            raw_answer = await llm_client.generate(
-                prompt=answer_prompt,
-                system_prompt=system_prompt,
-                max_tokens=settings.SGLANG_MAX_TOKENS,
-                temperature=settings.SGLANG_TEMPERATURE,
-            )
-        elif intent in ["GENERAL_KNOWLEDGE", "CODING", "EDUCATION", "CREATIVE", "GENERAL_CHAT"]:
-            answer_prompt = GENERAL_AI_PROMPT.format(
-                user_query=sanitized_input,
-                conversation_context=history_context,
-            )
-            raw_answer = await llm_client.generate(
-                prompt=answer_prompt,
-                system_prompt=system_prompt,
-                max_tokens=settings.SGLANG_MAX_TOKENS,
-                temperature=0.3,
-            )
-
-        elif intent in ["WEB_SEARCH", "EXTERNAL_INFORMATION"]:
-            search_data_str = ""
-            for r in external_sources:
-                search_data_str += f"- {r.get('title')}: {r.get('snippet')} (Source: {r.get('source')})\n"
-            if not search_data_str:
-                search_data_str = str(tool_results_data) if tool_results_data else "Web search completed with general results."
-
-            answer_prompt = WEB_SEARCH_SYNTHESIS_PROMPT.format(
-                user_query=sanitized_input,
-                conversation_context=history_context,
-                search_results=search_data_str,
-            )
-            raw_answer = await llm_client.generate(
-                prompt=answer_prompt,
-                system_prompt=system_prompt,
-                max_tokens=settings.SGLANG_MAX_TOKENS,
-                temperature=0.2,
-            )
-
-        elif intent == "MULTI_TOOL":
-            answer_prompt = MULTI_TOOL_PROMPT.format(
-                user_query=sanitized_input,
-                conversation_context=history_context,
-                retrieved_knowledge=retrieved_context,
-                tool_results=str(tool_results_data),
-            )
-            raw_answer = await llm_client.generate(
-                prompt=answer_prompt,
-                system_prompt=system_prompt,
-                max_tokens=settings.SGLANG_MAX_TOKENS,
-                temperature=0.2,
-            )
-
-        else:
-            # Organization knowledge, location, procedures
-            if not sources and not tool_results_data:
-                raw_answer = UNVERIFIED_STANDARD_REFUSAL
-            else:
+        try:
+            if sources:
                 answer_prompt = GROUNDED_RAG_PROMPT.format(
                     user_query=sanitized_input,
                     conversation_context=history_context,
@@ -396,8 +470,73 @@ class AIOrchestrator:
                     max_tokens=settings.SGLANG_MAX_TOKENS,
                     temperature=settings.SGLANG_TEMPERATURE,
                 )
+            elif intent in ["GENERAL_KNOWLEDGE", "CODING", "EDUCATION", "CREATIVE", "GENERAL_CHAT"]:
+                answer_prompt = GENERAL_AI_PROMPT.format(
+                    user_query=sanitized_input,
+                    conversation_context=history_context,
+                )
+                raw_answer = await llm_client.generate(
+                    prompt=answer_prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=settings.SGLANG_MAX_TOKENS,
+                    temperature=0.3,
+                )
 
-        logger.info(f"[CHAT] LLM COMPLETE: generated {len(raw_answer)} chars")
+            elif intent in ["WEB_SEARCH", "EXTERNAL_INFORMATION"]:
+                search_data_str = ""
+                for r in external_sources:
+                    search_data_str += f"- {r.get('title')}: {r.get('snippet')} (Source: {r.get('source')})\n"
+                if not search_data_str:
+                    search_data_str = str(tool_results_data) if tool_results_data else "Web search completed with general results."
+
+                answer_prompt = WEB_SEARCH_SYNTHESIS_PROMPT.format(
+                    user_query=sanitized_input,
+                    conversation_context=history_context,
+                    search_results=search_data_str,
+                )
+                raw_answer = await llm_client.generate(
+                    prompt=answer_prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=settings.SGLANG_MAX_TOKENS,
+                    temperature=0.2,
+                )
+
+            elif intent == "MULTI_TOOL":
+                answer_prompt = MULTI_TOOL_PROMPT.format(
+                    user_query=sanitized_input,
+                    conversation_context=history_context,
+                    retrieved_knowledge=retrieved_context,
+                    tool_results=str(tool_results_data),
+                )
+                raw_answer = await llm_client.generate(
+                    prompt=answer_prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=settings.SGLANG_MAX_TOKENS,
+                    temperature=0.2,
+                )
+
+            else:
+                if not sources and not tool_results_data:
+                    raw_answer = UNVERIFIED_STANDARD_REFUSAL
+                else:
+                    answer_prompt = GROUNDED_RAG_PROMPT.format(
+                        user_query=sanitized_input,
+                        conversation_context=history_context,
+                        retrieved_knowledge=retrieved_context,
+                        tool_results=str(tool_results_data) if tool_results_data else "No specific tool results.",
+                    )
+                    raw_answer = await llm_client.generate(
+                        prompt=answer_prompt,
+                        system_prompt=system_prompt,
+                        max_tokens=settings.SGLANG_MAX_TOKENS,
+                        temperature=settings.SGLANG_TEMPERATURE,
+                    )
+        except Exception as llm_err:
+            logger.warning(f"[{correlation_id}] LLM generation error ({llm_err}). Triggering local fallback.")
+            raw_answer = llm_client._local_fallback_generate(sanitized_input, system_prompt)
+
+        t_llm_ms = round((time.time() - t_llm_start) * 1000, 2)
+        logger.info(f"[{correlation_id}] LLM COMPLETE: generated {len(raw_answer)} chars (duration={t_llm_ms}ms)")
 
         # 9. Grounding & Hallucination Guard
         final_answer = GroundingValidator.enforce_grounding(
@@ -409,15 +548,12 @@ class AIOrchestrator:
             is_external=is_external_query,
             intent=intent,
         )
-        # Normalize alternative citation formats produced by models (e.g. "[Source: S1]" or "[Source S1]")
-        # into the canonical short form "[S1]" which the grounding validator and tests expect.
         try:
             final_answer = re.sub(r"\[Source[: ]+S(\d+)\]", r"[S\1]", final_answer)
         except Exception:
             pass
-        logger.info(f"[CHAT] GROUNDING VALIDATED: grounded={final_answer != UNVERIFIED_STANDARD_REFUSAL}")
 
-        # 10. Update Conversation Memory & Persist Turn
+        # 10. Update Conversation Memory & Persist Turn safely
         final_state = ConversationMemory.update_state_after_turn(
             state=updated_state,
             intent=intent,
@@ -446,18 +582,23 @@ class AIOrchestrator:
             debug_info=debug_info if debug_mode else None,
         )
 
-        self.context_mgr.persist_turn(
-            db=db,
-            session=session,
-            state=final_state,
-            user_query=sanitized_input,
-            assistant_response=response_obj,
-        )
+        try:
+            self.context_mgr.persist_turn(
+                db=db,
+                session=session,
+                state=final_state,
+                user_query=sanitized_input,
+                assistant_response=response_obj,
+            )
+        except Exception as db_persist_err:
+            logger.warning(f"[{correlation_id}] Non-critical DB turn persistence notice: {db_persist_err}")
 
-        duration = round((time.time() - start_time) * 1000, 2)
-        # Observability turn log
+        total_duration = round((time.time() - start_time) * 1000, 2)
+
+        # Step timing log output format:
+        # [CHAT correlation_id] received: 0ms | routing: 5ms | rag: 12ms | tools: 3ms | llm: 650ms | total: 670ms
         logger.info(
-            f"[CHAT] RESPONSE SENT: intent={intent} tools={tools_used_list} llm={settings.effective_llm_model} duration={duration}ms status=success"
+            f"[{correlation_id}] received: 0ms | routing: {t_routing_ms}ms | rag: {t_rag_ms}ms | tools: {t_tools_ms}ms | llm: {t_llm_ms}ms | total: {total_duration}ms"
         )
 
         return response_obj

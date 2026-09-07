@@ -59,15 +59,19 @@ export const chatApi = {
     content: string,
     debugMode: boolean = false
   ): Promise<ApiResponse<ChatMessage>> {
-    // 1. Call real FastAPI /api/v1/chat endpoint
-    const res = await apiRequest<any>('/api/v1/chat', {
-      method: 'POST',
-      body: JSON.stringify({
-        message: content,
-        conversation_id: conversationId,
-        debug_mode: debugMode,
-      }),
-    });
+    // 1. Call real FastAPI /api/v1/chat endpoint with 60s timeout matching backend max
+    const res = await apiRequest<any>(
+      '/api/v1/chat',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          message: content,
+          conversation_id: conversationId,
+          debug_mode: debugMode,
+        }),
+      },
+      60000
+    );
 
     if (res.data && res.data.answer) {
       const data = res.data;

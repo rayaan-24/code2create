@@ -123,6 +123,7 @@ def root_endpoint():
         "service": settings.PROJECT_NAME,
         "docs": "/docs",
         "health": "/health",
+        "diagnostics": f"{settings.API_V1_STR}/health/diagnostics",
         "api_v1": settings.API_V1_STR,
         "version": "1.0.0",
     }
@@ -130,11 +131,25 @@ def root_endpoint():
 
 @app.get("/health", tags=["Health"])
 @app.get(f"{settings.API_V1_STR}/health", tags=["Health"])
-async def health_check(db: Session = Depends(get_db)):
+def health_fast():
+    """Fast health check endpoint returning JSON without DB/AI dependency."""
+    return {
+        "status": "ok",
+        "service": settings.PROJECT_NAME,
+        "version": "1.0.0",
+        "environment": settings.ENVIRONMENT,
+    }
+
+
+@app.get("/health/diagnostics", tags=["Health"])
+@app.get(f"{settings.API_V1_STR}/health/diagnostics", tags=["Health"])
+async def health_diagnostics(db: Session = Depends(get_db)):
     """
-    Unified system health check distinguishing healthy, degraded, or unavailable.
-    Does not expose sensitive infrastructure details publicly.
+    Diagnostics endpoint returning health status of LLM provider, DB, SerpApi,
+    and ElevenLabs without exposing secret keys.
     """
+    import httpx
+
     db_status = "unavailable"
     try:
         db.execute(text("SELECT 1"))
@@ -143,6 +158,7 @@ async def health_check(db: Session = Depends(get_db)):
         logger.exception(f"DB health check error: {e}")
         db_status = "unavailable"
 
+    llm_provider = settings.effective_llm_provider
     ai_status = "degraded"
     if settings.effective_llm_api_key:
         ai_status = "healthy"
@@ -153,15 +169,15 @@ async def health_check(db: Session = Depends(get_db)):
                 if resp.status_code == 200:
                     ai_status = "healthy"
         except Exception:
-            ai_status = "degraded"  # Graceful local fallback active
+            ai_status = "degraded"
 
-    search_status = "healthy" if settings.SERPAPI_API_KEY else "degraded"
-    voice_status = "healthy" if settings.ELEVENLABS_API_KEY else "degraded"
+    search_status = "configured" if settings.SERPAPI_API_KEY else "unconfigured"
+    voice_status = "configured" if settings.ELEVENLABS_API_KEY else "unconfigured"
 
     overall_status = "healthy"
     if db_status == "unavailable":
         overall_status = "unavailable"
-    elif "degraded" in [ai_status, search_status, voice_status]:
+    elif ai_status == "degraded":
         overall_status = "degraded"
 
     http_code = 200 if overall_status != "unavailable" else status.HTTP_503_SERVICE_UNAVAILABLE
@@ -174,7 +190,12 @@ async def health_check(db: Session = Depends(get_db)):
             "environment": settings.ENVIRONMENT,
             "components": {
                 "database": db_status,
-                "ai": ai_status,
+                "llm": {
+                    "status": ai_status,
+                    "provider": llm_provider,
+                    "model": settings.effective_llm_model,
+                    "base_url": settings.effective_llm_base_url,
+                },
                 "search": search_status,
                 "voice": voice_status,
             },
@@ -197,16 +218,22 @@ def db_health_check(db: Session = Depends(get_db)):
 
 @app.get("/health/ai", tags=["Health"])
 async def ai_health_check():
+    import httpx
     if settings.effective_llm_api_key:
-        return {"status": "healthy", "service": "ai", "mode": "cloud_llm_configured"}
+        return {
+            "status": "healthy",
+            "service": "ai",
+            "mode": f"{settings.effective_llm_provider}_configured",
+            "provider": settings.effective_llm_provider,
+        }
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:
             resp = await client.get(f"{settings.effective_llm_base_url.rstrip('/')}/v1/models")
             if resp.status_code == 200:
-                return {"status": "healthy", "service": "ai", "mode": "sglang_connected"}
+                return {"status": "healthy", "service": "ai", "mode": "sglang_connected", "provider": "sglang"}
     except Exception:
         pass
-    return {"status": "degraded", "service": "ai", "mode": "local_fallback_active"}
+    return {"status": "degraded", "service": "ai", "mode": "local_fallback_active", "provider": "local"}
 
 
 @app.get("/health/search", tags=["Health"])
@@ -239,3 +266,10 @@ app.include_router(chat.router, prefix=v1_prefix)
 app.include_router(navigation.router, prefix=v1_prefix)
 app.include_router(voice.router, prefix=v1_prefix)
 app.include_router(search.router, prefix=v1_prefix)
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
