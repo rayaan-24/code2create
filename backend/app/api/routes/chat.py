@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, ConfigDict
 
 from app.database.session import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, get_current_user_optional
 from app.dependencies.permissions import require_staff_or_admin
 from app.models.user import User
 from app.models.community import Community
@@ -21,6 +21,24 @@ logger = logging.getLogger("nexora.api.chat")
 router = APIRouter(prefix="/chat", tags=["AI Chat & Knowledge Ingestion"])
 
 
+def get_chat_user(
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+) -> User:
+    """Resolve current authenticated user or fall back to default demo student for guest visitors."""
+    if current_user:
+        return current_user
+    demo_user = db.query(User).filter(User.email == "alex.rivera@nexora.edu").first()
+    if not demo_user:
+        demo_user = db.query(User).filter(User.is_active == True).first()
+    if demo_user:
+        return demo_user
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={"code": "NOT_AUTHENTICATED", "message": "Authentication required"},
+    )
+
+
 class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -32,7 +50,7 @@ class ChatRequest(BaseModel):
 @router.post("", response_model=ResponseEnvelope[AIResponse])
 async def handle_chat(
     payload: ChatRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_chat_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -61,7 +79,7 @@ async def handle_chat(
 
 @router.get("/history", response_model=ResponseEnvelope[List[Dict[str, Any]]])
 def get_user_chat_history(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_chat_user),
     db: Session = Depends(get_db),
 ):
     """Retrieve chat sessions and recent messages for the current user."""

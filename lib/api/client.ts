@@ -3,8 +3,13 @@
  * Full-stack HTTP client for FastAPI backend with fallback and token management.
  */
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+function getBaseUrl(): string {
+  const raw = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001').trim().replace(/\/+$/, '');
+  // If base URL already ends with /api/v1, strip it so `${API_BASE_URL}/api/v1/...` doesn't double-prefix
+  return raw.replace(/\/api\/v1$/i, '');
+}
+
+export const API_BASE_URL = getBaseUrl();
 
 const TOKEN_STORAGE_KEY = 'nexora_auth_token';
 const USER_STORAGE_KEY = 'nexora_auth_user';

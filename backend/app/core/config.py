@@ -1,6 +1,11 @@
+import os
+from pathlib import Path
 from typing import List, Union
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+_ROOT_DIR = _BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
@@ -45,6 +50,40 @@ class Settings(BaseSettings):
     AI_REQUEST_TIMEOUT: int = 30
     RATE_LIMIT_PER_MINUTE: int = 60
 
+    # Optional AI LLM Provider Keys & Endpoints (Groq, OpenAI, SGLang, OpenRouter, etc.)
+    LLM_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+    GROQ_API_KEY: str = ""
+    SGLANG_API_KEY: str = ""
+    LLM_PROVIDER: str = "auto"
+
+    @property
+    def effective_llm_api_key(self) -> str:
+        return (
+            self.LLM_API_KEY
+            or self.GROQ_API_KEY
+            or self.OPENAI_API_KEY
+            or self.SGLANG_API_KEY
+        ).strip()
+
+    @property
+    def effective_llm_base_url(self) -> str:
+        # If GROQ_API_KEY is provided and SGLANG_BASE_URL is localhost default, switch to Groq endpoint
+        if self.GROQ_API_KEY and ("localhost:30000" in self.SGLANG_BASE_URL or "127.0.0.1:30000" in self.SGLANG_BASE_URL):
+            return "https://api.groq.com/openai/v1"
+        # If OPENAI_API_KEY is provided and SGLANG_BASE_URL is localhost default, switch to OpenAI endpoint
+        if self.OPENAI_API_KEY and ("localhost:30000" in self.SGLANG_BASE_URL or "127.0.0.1:30000" in self.SGLANG_BASE_URL):
+            return "https://api.openai.com/v1"
+        return self.SGLANG_BASE_URL.rstrip("/")
+
+    @property
+    def effective_llm_model(self) -> str:
+        if self.GROQ_API_KEY and self.SGLANG_MODEL == "meta-llama/Llama-3.1-8B-Instruct" and "groq.com" in self.effective_llm_base_url:
+            return "llama-3.3-70b-versatile"
+        if self.OPENAI_API_KEY and self.SGLANG_MODEL == "meta-llama/Llama-3.1-8B-Instruct" and "openai.com" in self.effective_llm_base_url:
+            return "gpt-4o-mini"
+        return self.SGLANG_MODEL
+
     # Phase 4: Voice & Web Search Configuration
     ELEVENLABS_API_KEY: str = ""
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
@@ -56,7 +95,11 @@ class Settings(BaseSettings):
     SEARCH_REQUEST_TIMEOUT: int = 10
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(
+            str(_BACKEND_DIR / ".env"),
+            str(_ROOT_DIR / ".env"),
+            ".env",
+        ),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",

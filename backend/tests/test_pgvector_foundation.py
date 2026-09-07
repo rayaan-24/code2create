@@ -161,7 +161,9 @@ def test_alembic_pgvector_migration_sql_generation():
     - HNSW vector index USING hnsw (embedding vector_cosine_ops)
     - Metadata and community indexes
     """
-    cfg = Config("backend/alembic.ini")
+    import os
+    ini_path = "backend/alembic.ini" if os.path.exists("backend/alembic.ini") else "alembic.ini"
+    cfg = Config(ini_path)
     cfg.set_main_option("sqlalchemy.url", "postgresql://nexora_admin:password@localhost:5432/nexora_db")
 
     captured_stdout = io.StringIO()

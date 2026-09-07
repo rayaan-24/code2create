@@ -23,11 +23,26 @@ class LLMClient:
         self,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
+        api_key: Optional[str] = None,
         timeout: Optional[int] = None,
     ):
-        self.base_url = (base_url or settings.SGLANG_BASE_URL).rstrip("/")
-        self.model = model or settings.SGLANG_MODEL
+        self.base_url = (base_url or settings.effective_llm_base_url).rstrip("/")
+        self.model = model or settings.effective_llm_model
+        self.api_key = api_key if api_key is not None else settings.effective_llm_api_key
         self.timeout = timeout or settings.AI_REQUEST_TIMEOUT
+
+    def _get_headers(self) -> Dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return headers
+
+    def _get_endpoint(self, path: str = "/chat/completions") -> str:
+        base = self.base_url.rstrip("/")
+        clean_path = path if path.startswith("/") else f"/{path}"
+        if base.endswith("/v1"):
+            return f"{base}{clean_path}"
+        return f"{base}/v1{clean_path}"
 
     async def generate(
         self,
@@ -37,7 +52,7 @@ class LLMClient:
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
     ) -> str:
-        """Call SGLang /v1/chat/completions endpoint with robust error handling and timeout."""
+        """Call SGLang / OpenAI-compatible /v1/chat/completions endpoint with robust error handling and timeout."""
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -55,12 +70,13 @@ class LLMClient:
             "top_p": eff_top_p,
         }
 
-        endpoint = f"{self.base_url}/v1/chat/completions"
-        timeout_config = httpx.Timeout(connect=0.3, read=self.timeout, write=self.timeout, pool=self.timeout)
+        endpoint = self._get_endpoint("/chat/completions")
+        conn_timeout = min(5.0, float(self.timeout))
+        timeout_config = httpx.Timeout(connect=conn_timeout, read=self.timeout, write=self.timeout, pool=self.timeout)
 
         try:
             async with httpx.AsyncClient(timeout=timeout_config) as client:
-                res = await client.post(endpoint, json=payload)
+                res = await client.post(endpoint, json=payload, headers=self._get_headers())
                 if res.status_code == 200:
                     data = res.json()
                     choices = data.get("choices", [])
@@ -68,8 +84,10 @@ class LLMClient:
                         content = choices[0].get("message", {}).get("content", "")
                         if content and content.strip():
                             return content.strip()
+                else:
+                    logger.warning(f"LLM API at {endpoint} returned status {res.status_code}: {res.text[:200]}")
         except Exception as e:
-            logger.warning(f"SGLang inference server call to {endpoint} failed or unreachable: {e}")
+            logger.warning(f"LLM inference server call to {endpoint} failed or unreachable: {e}")
 
         # Fallback to deterministic local grounded response
         return self._local_fallback_generate(prompt, system_prompt)
@@ -115,12 +133,13 @@ class LLMClient:
             "stream": True,
         }
 
-        endpoint = f"{self.base_url}/v1/chat/completions"
-        timeout_config = httpx.Timeout(connect=0.2, read=self.timeout, write=self.timeout, pool=self.timeout)
+        endpoint = self._get_endpoint("/chat/completions")
+        conn_timeout = min(5.0, float(self.timeout))
+        timeout_config = httpx.Timeout(connect=conn_timeout, read=self.timeout, write=self.timeout, pool=self.timeout)
 
         try:
             async with httpx.AsyncClient(timeout=timeout_config) as client:
-                async with client.stream("POST", endpoint, json=payload) as response:
+                async with client.stream("POST", endpoint, json=payload, headers=self._get_headers()) as response:
                     if response.status_code == 200:
                         async for line in response.aiter_lines():
                             if line.startswith("data: "):
@@ -186,6 +205,17 @@ class LLMClient:
             # If retrieved context doesn't match query, refuse
             if any(k in query_text for k in ["telescope", "observatory", "astronomy", "unknown"]):
                 return "I couldn't verify that information from the available community sources."
+
+            # Grounded extraction from retrieved context when available
+            clean_lines = [
+                line.strip() for line in retrieved_text.splitlines()
+                if line.strip() and not line.strip().startswith(("[Document", "Source:", "---", "==="))
+            ]
+            if clean_lines:
+                excerpt = clean_lines[0]
+                if len(excerpt) > 300:
+                    excerpt = excerpt[:297] + "..."
+                return f"{excerpt} {citation}".strip()
 
         # Procedural & navigation fallbacks
         if "passport" in query_text and "photo" not in query_text:

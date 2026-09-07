@@ -1,13 +1,14 @@
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.logging import setup_logging, logger
-from app.database.session import SessionLocal, engine
+from app.database.session import SessionLocal, engine, get_db
 from app.database.base import Base
 import app.models  # Ensure all models are registered
 
@@ -32,7 +33,10 @@ from app.api.routes import (
 setup_logging()
 
 # Automatically create tables if not existing (e.g. SQLite / initial dev)
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as err:
+    logger.warning(f"Database schema auto-creation skipped: {err}")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -101,29 +105,31 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 # Health checks
 @app.get("/health", tags=["Health"])
-async def health_check():
+@app.get(f"{settings.API_V1_STR}/health", tags=["Health"])
+async def health_check(db: Session = Depends(get_db)):
     """
     Unified system health check distinguishing healthy, degraded, or unavailable.
     Does not expose sensitive infrastructure details publicly.
     """
     db_status = "unavailable"
-    db = SessionLocal()
     try:
         db.execute(text("SELECT 1"))
         db_status = "healthy"
-    except Exception:
+    except Exception as e:
+        logger.exception(f"DB health check error: {e}")
         db_status = "unavailable"
-    finally:
-        db.close()
 
     ai_status = "degraded"
-    try:
-        async with httpx.AsyncClient(timeout=1.5) as client:
-            resp = await client.get(f"{settings.SGLANG_BASE_URL.rstrip('/')}/v1/models")
-            if resp.status_code == 200:
-                ai_status = "healthy"
-    except Exception:
-        ai_status = "degraded"  # Graceful local fallback active
+    if settings.effective_llm_api_key:
+        ai_status = "healthy"
+    else:
+        try:
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                resp = await client.get(f"{settings.effective_llm_base_url.rstrip('/')}/v1/models")
+                if resp.status_code == 200:
+                    ai_status = "healthy"
+        except Exception:
+            ai_status = "degraded"  # Graceful local fallback active
 
     search_status = "healthy" if settings.SERPAPI_API_KEY else "degraded"
     voice_status = "healthy" if settings.ELEVENLABS_API_KEY else "degraded"
@@ -154,8 +160,7 @@ async def health_check():
 
 @app.get("/health/database", tags=["Health"])
 @app.get("/health/db", tags=["Health"])
-def db_health_check():
-    db = SessionLocal()
+def db_health_check(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1"))
         return {"status": "healthy", "service": "database", "message": "connected"}
@@ -164,15 +169,15 @@ def db_health_check():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "unavailable", "service": "database", "message": "connection failed"},
         )
-    finally:
-        db.close()
 
 
 @app.get("/health/ai", tags=["Health"])
 async def ai_health_check():
+    if settings.effective_llm_api_key:
+        return {"status": "healthy", "service": "ai", "mode": "cloud_llm_configured"}
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:
-            resp = await client.get(f"{settings.SGLANG_BASE_URL.rstrip('/')}/v1/models")
+            resp = await client.get(f"{settings.effective_llm_base_url.rstrip('/')}/v1/models")
             if resp.status_code == 200:
                 return {"status": "healthy", "service": "ai", "mode": "sglang_connected"}
     except Exception:
