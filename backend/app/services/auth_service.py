@@ -163,6 +163,36 @@ def authenticate_user(
     return user, tokens
 
 
+def issue_guest_token(db: Session) -> tuple[User, TokenResponse]:
+    demo_user = db.query(User).filter(User.email == "alex.rivera@nexora.edu").first()
+    if not demo_user:
+        demo_user = db.query(User).filter(User.is_active == True).first()
+    if not demo_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "NO_GUEST_ACCOUNT", "message": "No active user available for guest session"},
+        )
+
+    access_token = create_access_token(
+        subject=demo_user.id,
+        community_id=demo_user.community_id,
+        role=demo_user.role.value,
+    )
+    refresh_token = create_refresh_token(
+        subject=demo_user.id,
+        community_id=demo_user.community_id,
+        role=demo_user.role.value,
+    )
+
+    tokens = TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+    return demo_user, tokens
+
+
 def refresh_access_token(db: Session, refresh_token: str) -> TokenResponse:
     payload = decode_token(refresh_token)
     if not payload or payload.get("type") != "refresh":
