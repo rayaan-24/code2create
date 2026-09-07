@@ -127,9 +127,10 @@ class AIOrchestrator:
         sources: List[SourceAttribution] = []
 
         is_community_intent = intent in [
-            "ORGANIZATION_KNOWLEDGE", "QUESTION", "PROCEDURE", 
-            "LOCATION", "SERVICE_LOOKUP", "MULTI_TOOL"
-        ]
+            "ORGANIZATION_KNOWLEDGE", "QUESTION", "PROCEDURE",
+            "LOCATION", "SERVICE_LOOKUP", "MULTI_TOOL",
+            "ANNOUNCEMENT", "REQUEST", "UNKNOWN", "EDUCATION", "GENERAL_KNOWLEDGE"
+        ] or intent_result.needs_retrieval
 
         if intent_result.needs_retrieval and is_community_intent:
             logger.info(f"[CHAT] RAG START: query='{resolved_query[:50]}' (community={community.id})")
@@ -320,7 +321,20 @@ class AIOrchestrator:
         )
 
         # Route to appropriate response prompt
-        if intent in ["GENERAL_KNOWLEDGE", "CODING", "EDUCATION", "CREATIVE", "GENERAL_CHAT"]:
+        if sources:
+            answer_prompt = GROUNDED_RAG_PROMPT.format(
+                user_query=sanitized_input,
+                conversation_context=history_context,
+                retrieved_knowledge=retrieved_context,
+                tool_results=str(tool_results_data) if tool_results_data else "No specific tool results.",
+            )
+            raw_answer = await llm_client.generate(
+                prompt=answer_prompt,
+                system_prompt=system_prompt,
+                max_tokens=settings.SGLANG_MAX_TOKENS,
+                temperature=settings.SGLANG_TEMPERATURE,
+            )
+        elif intent in ["GENERAL_KNOWLEDGE", "CODING", "EDUCATION", "CREATIVE", "GENERAL_CHAT"]:
             answer_prompt = GENERAL_AI_PROMPT.format(
                 user_query=sanitized_input,
                 conversation_context=history_context,
