@@ -1,495 +1,55 @@
 'use client';
 
-import React, { useState, useEffect, Suspense, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
-import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
-import { GlassBadge } from '@/components/ui/GlassBadge';
-import { GlassInput } from '@/components/ui/GlassInput';
-import { ErrorBanner } from '@/components/shared/ErrorBanner';
-import { LoadingSkeleton } from '@/components/shared/LoadingSkeleton';
-import {
-  MapPin,
-  Navigation as NavigationIcon,
-  Clock,
-  Compass,
-  Layers,
-  Building,
-  Zap,
-  Accessibility,
-  CheckCircle2,
-  ArrowRight,
-  Footprints,
-} from 'lucide-react';
-import { navigationApi } from '@/lib/api/navigation';
-import { locationsApi } from '@/lib/api/locations';
-import { LocationItem, NavigationRoute } from '@/lib/types';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { Accessibility, Building2, DoorOpen, Footprints, LocateFixed, Route } from 'lucide-react';
 
-// Map node coordinates for demo campus visualization (0-1000 scale)
-const DEMO_NODES: Record<string, { x: number; y: number; floor: number; label: string; type: string }> = {
-  'library-main': { x: 120, y: 350, floor: 0, label: 'Library Main Entrance', type: 'ENTRANCE' },
-  'lib-corridor': { x: 260, y: 350, floor: 0, label: 'Library Corridor A', type: 'CORRIDOR' },
-  'sjt-stair-g': { x: 380, y: 220, floor: 0, label: 'SJT Central Stairs', type: 'STAIR' },
-  'sjt-elev-g': { x: 420, y: 460, floor: 0, label: 'SJT Central Elevator', type: 'ELEVATOR' },
-  'sjt-g-atrium': { x: 490, y: 350, floor: 0, label: 'SJT Ground Atrium', type: 'INTERSECTION' },
-  'sjt-corridor-g': { x: 630, y: 350, floor: 0, label: 'SJT Ground Corridor', type: 'CORRIDOR' },
-  'student-services': { x: 780, y: 350, floor: 0, label: 'Student Services (G12)', type: 'ROOM' },
-  'room-g12': { x: 880, y: 350, floor: 0, label: 'Room G12 Consultation Desk', type: 'ROOM' },
-  // Floor 1
-  'sjt-stair-1': { x: 380, y: 220, floor: 1, label: 'SJT Stairs (Floor 1)', type: 'STAIR' },
-  'sjt-elev-1': { x: 420, y: 460, floor: 1, label: 'SJT Elevator (Floor 1)', type: 'ELEVATOR' },
-  'it-desk': { x: 740, y: 350, floor: 1, label: 'IT Help Desk (104)', type: 'ROOM' },
-  // Floor 2
-  'sjt-stair-2': { x: 380, y: 220, floor: 2, label: 'SJT Stairs (Floor 2)', type: 'STAIR' },
-  'sjt-elev-2': { x: 420, y: 460, floor: 2, label: 'SJT Elevator (Floor 2)', type: 'ELEVATOR' },
-  'academic-office': { x: 760, y: 350, floor: 2, label: 'Academic Affairs (210)', type: 'ROOM' },
-};
+type Kind = 'room' | 'corridor' | 'stair' | 'lift' | 'exit';
+type Element = { id: string; name: string; x: number; y: number; width: number; height: number; kind: Kind; department?: string; capacity?: number };
+const BUILDING = { width: 120, height: 94 };
+const room = (v: [string, string, string, number, number, number, number, number]): Element => ({ id: v[0], name: v[1], department: v[2], x: v[3], y: v[4], width: v[5], height: v[6], capacity: v[7], kind: 'room' });
+
+// Exact metric coordinates supplied for the SJT Ground Floor plan (all units: metres).
+const ROOMS = [
+ ['G01','Classroom G01','SITE',21,70,8,10.56,48],['G02','Classroom G02','SITE',30,70,10,10.05,56],['G03','Classroom G03','SITE',40,70,10,10.05,56],['G04','Classroom G04','SITE',50,70,8,10.35,46],['G05','Classroom G05','SITE',62,70,8,10.13,44],['G06','Electrical Room','',71.5,48,4,7.01,4],['G07','Smart Classroom','SITE',44,48,14,11.51,90],['G08','Classroom G08','SITE',62,48,6.8,8.14,28],['G09','Boys Toilet','',100,27,8,8.37,18],['G10','Classroom G10','SITE',100,37.5,7.5,10.05,40],['G11','Dining Hall G11','',22,27,12,13,120],['G12','Dining Hall G12','',66,27,12,13,120],['G13','Canteen Arasan','',29.5,8.5,28.5,15.5,320],['G14','Classroom G14','SITE',10.5,38,7.5,10.05,40],['G15','Girls Toilet','',10.5,27,7.5,9.33,18],['G16','Classroom G16','SITE',10,59.6,8,10.4,44],['G17','SD & Management Lab','SITE',6,47.5,12,12.75,70],['G18','Embedded & IoT Lab','SITE',21,48,9.5,10,42],['G18A','IP Lab','SITE',31.5,48,6,9.17,24],['G19','Mobile App Development Lab','SITE',72,70,9.5,10,42],['G19A','Automation Lab','SITE',83.5,70,6,9.17,24],['G20','Data Science Lab','SITE',84.8,48,12,12.75,70],['G21','Staff Toilet','',79.5,27,4,9.29,10],['G22','Dean Office','SITE',35,27,9.1,10,18],['G23','HOD Cabin - SITE','SITE',44.6,27,8.45,10,12],['G24','Classroom G24','SITE',84,27,8.25,10,44],['MISC','Store','',90,70,2.5,2.97,4],['G26',"Janitor's Store",'',94,70,1.5,1.86,2],
+] as const satisfies readonly [string, string, string, number, number, number, number, number][];
+const rooms = ROOMS.map((item) => room([...item]));
+const corridor = (v: [string, number, number, number, number]): Element => ({ id: v[0], name: 'Corridor', x: v[1], y: v[2], width: v[3], height: v[4], kind: 'corridor' });
+const corridors = [
+ ['C1A',58,16,4,8],['C1B',58,27,4,18],['C1C',58,48,4,19],['C1D',58,70,4,18],['C2A',18,16,3,8],['C2B',18,27,3,18],['C2C',18,48,3,19],['C2D',18,70,3,18],['C3A',97,16,3,12],['C3B',97,25,3,24],['C3C',97,46,3,25],['C3D',97,68,3,20],['C4A',21,24,37,3],['C4B',62,24,35,3],['C5A',21,45,37,3],['C5B',62,45,35,3],['C6A',21,67,37,3],['C6B',62,67,35,3],['CJ_NW',18,24,3,3],['CJ_NC',58,24,4,3],['CJ_NE',97,24,3,3],['CJ_MW',18,45,3,3],['CJ_MC',58,45,4,3],['CJ_ME',97,45,3,3],['CJ_SW',18,67,3,3],['CJ_SC',58,67,4,3],['CJ_SE',97,67,3,3],['C7A',18,12,5,4],['C7B',95,12,5,4],['C7C',100,57,8,4],
+] as const satisfies readonly [string, number, number, number, number][];
+const fixtures: Element[] = [
+ {id:'S1',name:'North West Stair',x:22,y:10,width:6,height:8,kind:'stair'},{id:'S2',name:'North East Stair',x:90,y:10,width:6,height:8,kind:'stair'},{id:'S3',name:'South Stair',x:56,y:88,width:8,height:4,kind:'stair'},{id:'L1',name:'Central Lift',x:54,y:39,width:4,height:6,kind:'lift'},{id:'E1',name:'North West Exit',x:18,y:10,width:4,height:2,kind:'exit'},{id:'E2',name:'North East Exit',x:96,y:10,width:4,height:2,kind:'exit'},{id:'E3',name:'East Side Exit',x:108,y:57,width:2,height:4,kind:'exit'},{id:'E4',name:'South Exit',x:58,y:92,width:4,height:2,kind:'exit'},
+];
+const doors = [['G01',21,69.5],['G02',30.5,69.5],['G03',41,69.5],['G04',50.5,69.5],['G05',66,69.5],['G06',72,48.5],['G07',48,48.5],['G08',65,48.5],['G09',99.5,30],['G10',99.5,41],['G11',27,26.5],['G12',71,26.5],['G13',48.8,23.5],['G14',17.5,42],['G15',17.5,31],['G16',17.5,61],['G17',17.5,54],['G18',25,48.5],['G18A',33.5,48.5],['G19',75.8,69.5],['G19A',84,69.5],['G20',89,48.5],['G21',80.5,26.5],['G22',38.5,26.5],['G23',47.2,26.5],['G24',87,26.5],['G26',94,69.5],['MISC',90,69.5]] as const;
+const places = [...rooms, ...fixtures.filter((item) => item.kind !== 'lift')];
+const centre = (item: Element) => ({ x: item.x + item.width / 2, y: item.y + item.height / 2 });
+const doorway = (item: Element) => { const door = doors.find(([id]) => id === item.id); return door ? { x: door[1], y: door[2] } : centre(item); };
+const routeY = (y: number) => y < 27 ? 25.5 : y < 70 ? 46.5 : 68.5;
 
 function MapContent() {
-  const searchParams = useSearchParams();
-  const destParam = searchParams.get('dest');
-  const startParam = searchParams.get('start');
-
-  const [locations, setLocations] = useState<LocationItem[]>([]);
-  const [startPoint, setStartPoint] = useState(startParam || 'Central Library (Main Entrance)');
-  const [destination, setDestination] = useState(destParam || 'Student Services Center');
-  const [isAccessible, setIsAccessible] = useState(false);
-  const [route, setRoute] = useState<NavigationRoute | null>(null);
-  const [activeFloor, setActiveFloor] = useState<number>(0);
-  const [isNavigating, setIsNavigating] = useState(false);
-  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const [locRes, routeRes] = await Promise.all([
-          locationsApi.getLocations(),
-          navigationApi.calculateRoute(
-            startParam || 'Central Library (Main Entrance)',
-            destParam || 'Student Services Center',
-            isAccessible
-          ),
-        ]);
-        if (locRes.data) setLocations(locRes.data);
-        if (routeRes.data) {
-          setRoute(routeRes.data);
-        }
-      } catch (err: any) {
-        setError('Failed to load navigation graph');
-      }
-    };
-    init();
-  }, [destParam, startParam]);
-
-  const handleCalculateRoute = async (targetDest = destination, accessible = isAccessible) => {
-    setIsLoadingRoute(true);
-    setError(null);
-    try {
-      const res = await navigationApi.calculateRoute(startPoint, targetDest, accessible);
-      if (res.data) {
-        setRoute(res.data);
-      } else if (res.error) {
-        setError(res.error);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Route calculation failed');
-    } finally {
-      setIsLoadingRoute(false);
-    }
-  };
-
-  const toggleAccessibility = () => {
-    const next = !isAccessible;
-    setIsAccessible(next);
-    handleCalculateRoute(destination, next);
-  };
-
-  // Filter nodes visible on the active floor
-  const visibleNodes = useMemo(() => {
-    return Object.entries(DEMO_NODES).filter(([_, node]) => node.floor === activeFloor);
-  }, [activeFloor]);
-
-  // SVG coordinate path line generator
-  const routePoints = useMemo(() => {
-    if (!route || !route.steps) return 'M 120 350 L 260 350 L 490 350 L 630 350 L 780 350 L 880 350';
-    // Match route steps to node coordinates
-    const pts = [
-      { x: 120, y: 350 },
-      { x: 260, y: 350 },
-      isAccessible ? { x: 420, y: 460 } : { x: 380, y: 220 },
-      { x: 490, y: 350 },
-      { x: 630, y: 350 },
-      { x: 780, y: 350 },
-      { x: 880, y: 350 },
-    ];
-    return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  }, [route, isAccessible]);
-
-  const floorLabels = [
-    { floor: 0, name: 'Ground Floor' },
-    { floor: 1, name: 'First Floor' },
-    { floor: 2, name: 'Second Floor' },
-  ];
-
-  const [mobileTab, setMobileTab] = useState<'map' | 'controls'>('map');
-
-  return (
-    <div className="flex flex-col lg:flex-row h-full w-full overflow-hidden relative">
-      {/* Mobile Tab View Selector */}
-      <div className="lg:hidden flex items-center justify-center p-2.5 bg-white/95 border-b border-[rgba(160,50,85,0.18)] z-30 shrink-0 select-none shadow-2xs">
-        <div className="flex rounded-xl bg-[#FFF0F4] p-1 border border-[rgba(160,50,85,0.2)] w-full max-w-xs">
-          <button
-            type="button"
-            onClick={() => setMobileTab('map')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-              mobileTab === 'map'
-                ? 'bg-[#EB4D6E] text-white shadow-xs'
-                : 'text-[#5C4B52] hover:text-[#111111]'
-            }`}
-          >
-            🗺️ Live Map
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileTab('controls')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-              mobileTab === 'controls'
-                ? 'bg-[#EB4D6E] text-white shadow-xs'
-                : 'text-[#5C4B52] hover:text-[#111111]'
-            }`}
-          >
-            🧭 Route {route ? `(${route.etaMinutes}m)` : ''}
-          </button>
-        </div>
-      </div>
-
-      {/* Left Panel: Route Controls & Turn-by-Turn Guidance */}
-      <div
-        className={`w-full lg:w-96 flex-shrink-0 bg-white/95 border-r border-[rgba(160,50,85,0.2)] p-4 sm:p-5 overflow-y-auto space-y-4 z-20 shadow-xl shadow-rose-950/5 ${
-          mobileTab === 'controls' ? 'flex flex-col h-full' : 'hidden lg:block'
-        }`}
-      >
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-bold text-[#111111] flex items-center gap-2">
-              <NavigationIcon className="w-4 h-4 text-[#EB4D6E]" />
-              <span>NEXORA A* Navigation Engine</span>
-            </h2>
-            <GlassBadge variant="success" size="sm">
-              Online
-            </GlassBadge>
-          </div>
-          <p className="text-xs text-[#5C4B52] leading-relaxed">
-            Intelligent indoor wayfinding with A* shortest-path heuristic, multi-floor transitions, and step-by-step instructions.
-          </p>
-        </div>
-
-        {error && <ErrorBanner message={error} />}
-
-        {/* Route Inputs */}
-        <div className="space-y-3 p-3.5 rounded-2xl bg-[#FFF0F4] border border-[rgba(160,50,85,0.2)]">
-          <GlassInput
-            label="Current Location (Start Point)"
-            value={startPoint}
-            onChange={(e) => setStartPoint(e.target.value)}
-            leftIcon={<MapPin className="w-4 h-4 text-emerald-600" />}
-          />
-
-          <GlassInput
-            label="Destination"
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            leftIcon={<MapPin className="w-4 h-4 text-rose-600" />}
-          />
-
-          {/* Accessible Routing Toggle */}
-          <div className="flex items-center justify-between pt-1">
-            <button
-              type="button"
-              onClick={toggleAccessibility}
-              className={`flex items-center gap-2 text-xs font-semibold px-2.5 py-1.5 rounded-xl border transition-all ${
-                isAccessible
-                  ? 'bg-[#FFE2E8] text-[#B82346] border-[#EB4D6E]/50 shadow-2xs'
-                  : 'bg-white text-[#3D2D33] border-[rgba(160,50,85,0.22)] hover:text-[#111111] hover:bg-[#FFF8FA]'
-              }`}
-            >
-              <Accessibility className="w-3.5 h-3.5" />
-              <span>Accessible Route (Avoid Stairs)</span>
-              {isAccessible && <CheckCircle2 className="w-3.5 h-3.5 text-[#B82346] ml-1" />}
-            </button>
-          </div>
-
-          <GlassButton
-            onClick={() => handleCalculateRoute()}
-            variant="primary"
-            size="sm"
-            isLoading={isLoadingRoute}
-            className="w-full mt-1"
-          >
-            <Zap className="w-3.5 h-3.5 mr-1.5" />
-            Calculate A* Route
-          </GlassButton>
-        </div>
-
-        {/* Route Summary Card */}
-        {route && (
-          <GlassCard variant="elevated" className="p-4 border-[rgba(160,50,85,0.22)] bg-white shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#111111] truncate max-w-[180px]">
-                {route.destination}
-              </span>
-              <GlassBadge variant="success" size="sm">
-                <Clock className="w-3 h-3 mr-1" />
-                {route.etaMinutes} min walk
-              </GlassBadge>
-            </div>
-
-            <div className="flex items-center justify-between text-xs text-[#3D2D33] border-b border-[rgba(160,50,85,0.14)] pb-2">
-              <span className="flex items-center gap-1.5 font-medium">
-                <Footprints className="w-3.5 h-3.5 text-[#EB4D6E]" />
-                Distance: <strong className="text-[#111111]">{route.distanceMeters}m</strong>
-              </span>
-              <span className={`text-[11px] font-semibold ${isAccessible ? 'text-emerald-700' : 'text-[#5C4B52]'}`}>
-                {isAccessible ? '✓ Wheelchair / Elevator' : 'Standard Path'}
-              </span>
-            </div>
-
-            {/* Start Navigation Action */}
-            <GlassButton
-              variant={isNavigating ? 'secondary' : 'primary'}
-              size="md"
-              className="w-full"
-              onClick={() => setIsNavigating(!isNavigating)}
-            >
-              <Compass className={`w-4 h-4 mr-2 ${isNavigating ? 'animate-spin text-[#EB4D6E]' : ''}`} />
-              <span>{isNavigating ? 'Cancel Active Guidance' : 'Start Live Navigation'}</span>
-            </GlassButton>
-
-            {/* Step-by-Step Directions */}
-            <div className="pt-2">
-              <h4 className="text-xs font-bold text-[#111111] uppercase tracking-wider mb-2.5">
-                Turn-by-turn guidance ({route.steps.length} steps)
-              </h4>
-              <div className="space-y-3 text-xs max-h-60 overflow-y-auto pr-1">
-                {route.steps.map((step, idx) => (
-                  <div key={idx} className="flex items-start gap-2.5">
-                    <div className="w-5 h-5 rounded-full bg-[#FFE2E8] border border-[#EB4D6E]/40 text-[#B82346] flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">
-                      {idx + 1}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-[#111111] font-medium leading-snug">{step.instruction}</p>
-                      <div className="flex items-center gap-2 text-[10px] text-[#5C4B52] mt-0.5">
-                        <span className="text-emerald-700 font-bold">{step.distance}</span>
-                        {step.landmark && <span className="text-[#3D2D33]">• Landmark: {step.landmark}</span>}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </GlassCard>
-        )}
-
-        {/* Quick Destination Suggestions */}
-        <div>
-          <span className="text-xs font-bold text-[#111111] block mb-2">
-            Demo Campus Destinations
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {['Student Services', 'IT Help Desk', 'Academic Office', 'Library'].map((name) => (
-              <button
-                key={name}
-                onClick={() => {
-                  setDestination(name);
-                  handleCalculateRoute(name);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-[#FFE2E8] text-[11px] font-semibold text-[#111111] border border-[rgba(160,50,85,0.22)] hover:border-[#EB4D6E] shadow-2xs transition-colors"
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Right Side: Interactive Vector Map Canvas */}
-      <div
-        className={`flex-1 flex flex-col h-full bg-[#FFF6F9] relative overflow-hidden ${
-          mobileTab === 'map' ? 'flex' : 'hidden lg:flex'
-        }`}
-      >
-        {/* Top Floor Bar */}
-        <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-          <div className="pointer-events-auto flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl bg-white/95 border border-[rgba(160,50,85,0.22)] shadow-md">
-            <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#EB4D6E] ml-1.5 sm:ml-2 mr-0.5 sm:mr-1" />
-            {floorLabels.map((f) => (
-              <button
-                key={f.floor}
-                onClick={() => setActiveFloor(f.floor)}
-                className={`px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs rounded-xl transition-all font-bold cursor-pointer ${
-                  activeFloor === f.floor
-                    ? 'bg-[#EB4D6E] text-white shadow-sm'
-                    : 'text-[#3D2D33] hover:text-[#000000] hover:bg-[#FFF0F4]'
-                }`}
-              >
-                {f.name}
-              </button>
-            ))}
-          </div>
-
-          <div className="pointer-events-auto hidden sm:flex items-center gap-2">
-            <GlassBadge variant="outline" size="md" className="border-[rgba(160,50,85,0.3)] bg-white/95 text-[#111111] font-bold shadow-xs">
-              <Building className="w-3 h-3 text-[#EB4D6E]" />
-              <span className="truncate max-w-[200px] md:max-w-none">Silver Jubilee Tower & Library</span>
-            </GlassBadge>
-          </div>
-        </div>
-
-        {/* Map Blueprint Canvas Area */}
-        <div className="flex-1 relative flex items-center justify-center p-2 sm:p-6 select-none overflow-hidden">
-          {/* Ambient grid background */}
-          <div
-            className="absolute inset-0 opacity-40"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle, rgba(235, 77, 110, 0.25) 1px, transparent 1px)',
-              backgroundSize: '28px 28px',
-            }}
-          />
-
-          {/* SVG Map Container (1000 x 700 coordinate box) */}
-          <div className="relative w-full max-w-4xl aspect-[1000/700] min-h-[260px] max-h-[75vh] rounded-2xl sm:rounded-3xl border-2 border-[rgba(160,50,85,0.25)] bg-white/95 p-2 sm:p-4 shadow-2xl overflow-hidden backdrop-blur-md flex flex-col justify-between">
-            <svg
-              viewBox="0 0 1000 700"
-              className="w-full h-full"
-            >
-              {/* Floor Plan Zones */}
-              <g>
-                {/* Library Block */}
-                <rect x="50" y="200" width="220" height="300" rx="16" fill="#FFF0F4" stroke="#EB4D6E" strokeWidth="2" />
-                <text x="160" y="240" fill="#111111" fontSize="14" textAnchor="middle" fontWeight="bold">LIBRARY BLOCK</text>
-
-                {/* Corridor Link */}
-                <rect x="270" y="320" width="160" height="60" rx="8" fill="#FFE8EE" stroke="#B82346" strokeWidth="1.5" strokeDasharray="4 4" />
-
-                {/* SJT Main Atrium Block */}
-                <rect x="430" y="140" width="520" height="420" rx="20" fill="#FFF0F4" stroke="#EB4D6E" strokeWidth="2" />
-                <text x="690" y="180" fill="#111111" fontSize="16" textAnchor="middle" fontWeight="bold">SILVER JUBILEE TOWER (SJT)</text>
-
-                {/* Rooms Outline inside SJT */}
-                <rect x="460" y="220" width="120" height="90" rx="8" fill="#FFFFFF" stroke="rgba(160,50,85,0.3)" strokeWidth="1.5" />
-                <text x="520" y="260" fill="#2E2528" fontSize="12" fontWeight="600" textAnchor="middle">Stairs Wing</text>
-
-                <rect x="460" y="390" width="120" height="90" rx="8" fill="#FFFFFF" stroke="rgba(160,50,85,0.3)" strokeWidth="1.5" />
-                <text x="520" y="440" fill="#2E2528" fontSize="12" fontWeight="600" textAnchor="middle">Elevators</text>
-
-                <rect x="740" y="280" width="180" height="140" rx="12" fill="#FFE2E8" stroke="#EB4D6E" strokeWidth="2.5" />
-                <text x="830" y="340" fill="#B82346" fontSize="14" textAnchor="middle" fontWeight="bold">Student Services</text>
-                <text x="830" y="362" fill="#5C4B52" fontSize="11" textAnchor="middle" fontWeight="600">Room G12</text>
-              </g>
-
-              {/* Navigation Edges Base Graph */}
-              <g stroke="rgba(160,50,85,0.3)" strokeWidth="2" strokeDasharray="4 4">
-                <line x1="120" y1="350" x2="260" y2="350" />
-                <line x1="260" y1="350" x2="490" y2="350" />
-                <line x1="490" y1="350" x2="380" y2="220" />
-                <line x1="490" y1="350" x2="420" y2="460" />
-                <line x1="490" y1="350" x2="630" y2="350" />
-                <line x1="630" y1="350" x2="780" y2="350" />
-                <line x1="780" y1="350" x2="880" y2="350" />
-              </g>
-
-              {/* Active Route Polyline */}
-              <path
-                d={routePoints}
-                fill="none"
-                stroke="#EB4D6E"
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={isNavigating ? 'animate-pulse' : ''}
-              />
-
-              {/* Route Dash Effect */}
-              <path
-                d={routePoints}
-                fill="none"
-                stroke="#ffffff"
-                strokeWidth="2.5"
-                strokeDasharray="8 8"
-                strokeLinecap="round"
-              />
-
-              {/* Graph Nodes on Active Floor */}
-              {visibleNodes.map(([key, node]) => (
-                <g key={key} transform={`translate(${node.x}, ${node.y})`}>
-                  <circle
-                    r="10"
-                    fill={node.type === 'ROOM' ? '#B82346' : node.type === 'ELEVATOR' ? '#059669' : node.type === 'STAIR' ? '#D97706' : '#EB4D6E'}
-                    stroke="#ffffff"
-                    strokeWidth="2.5"
-                    className="shadow-sm"
-                  />
-                  <text
-                    y="24"
-                    fill="#111111"
-                    fontSize="11"
-                    textAnchor="middle"
-                    className="font-bold"
-                  >
-                    {node.label}
-                  </text>
-                </g>
-              ))}
-
-              {/* Start Pin */}
-              <g transform="translate(120, 350)">
-                <circle r="18" fill="#059669" opacity="0.25" className="animate-ping" />
-                <circle r="13" fill="#059669" stroke="#ffffff" strokeWidth="2.5" />
-                <text y="4" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">A</text>
-                <text y="-20" fill="#047857" fontSize="13" fontWeight="bold" textAnchor="middle">
-                  Start (Library)
-                </text>
-              </g>
-
-              {/* Destination Pin */}
-              <g transform="translate(880, 350)">
-                <circle r="18" fill="#DC2626" opacity="0.25" className="animate-ping" />
-                <circle r="13" fill="#DC2626" stroke="#ffffff" strokeWidth="2.5" />
-                <text y="4" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">B</text>
-                <text y="-22" fill="#B91C1C" fontSize="13" fontWeight="bold" textAnchor="middle">
-                  Student Services
-                </text>
-              </g>
-            </svg>
-
-            {/* Bottom Status bar */}
-            <div className="absolute bottom-2 sm:bottom-4 left-3 sm:left-6 right-3 sm:right-6 flex items-center justify-between text-[10px] sm:text-xs text-[#111111] font-semibold pt-1.5 sm:pt-2 border-t border-[rgba(160,50,85,0.18)] z-10">
-              <div className="flex items-center gap-1.5 sm:gap-2 truncate mr-2">
-                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#EB4D6E] animate-ping flex-shrink-0" />
-                <span className="truncate">
-                  Floor: <strong>{floorLabels[activeFloor].name}</strong> • {isAccessible ? 'Elevators' : 'Standard'}
-                </span>
-              </div>
-              <span className="text-[10px] sm:text-[11px] text-[#5C4B52] font-medium hidden sm:inline flex-shrink-0">
-                A* Grid: 1000x700
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+ const params = useSearchParams();
+ const requestedDestination = params.get('dest') ?? '';
+ const urlDestination = useMemo(() => rooms.find((item) => `${item.id} ${item.name}`.toLowerCase().includes(requestedDestination.toLowerCase()))?.id ?? 'G12', [requestedDestination]);
+ const [startId, setStartId] = useState('E1'); const [destinationId, setDestinationId] = useState(urlDestination); const [selectedId, setSelectedId] = useState(urlDestination); const [accessible, setAccessible] = useState(false); const [showRoute, setShowRoute] = useState(true);
+ useEffect(() => { setDestinationId(urlDestination); setSelectedId(urlDestination); }, [urlDestination]);
+ const start = places.find((item) => item.id === startId) ?? fixtures[4]; const destination = places.find((item) => item.id === destinationId) ?? rooms[11]; const selected = places.find((item) => item.id === selectedId) ?? destination;
+ const path = useMemo(() => { const a=centre(start), ad=doorway(start), bd=doorway(destination), b=centre(destination), ax=accessible?56:60; return [a,ad,{x:ad.x,y:routeY(ad.y)},{x:ax,y:routeY(ad.y)},{x:ax,y:routeY(bd.y)},{x:bd.x,y:routeY(bd.y)},bd,b].map((p,i)=>`${i?'L':'M'} ${p.x} ${p.y}`).join(' '); }, [start,destination,accessible]);
+ const distance = Math.round(Math.abs(centre(start).x-centre(destination).x)+Math.abs(centre(start).y-centre(destination).y));
+ return <div className="flex h-full min-h-0 flex-col lg:flex-row">
+  <aside className="order-2 flex w-full shrink-0 flex-col gap-4 overflow-y-auto border-t border-[rgba(160,50,85,0.18)] bg-white/95 p-4 lg:order-1 lg:w-80 lg:border-r lg:border-t-0">
+   <div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#B82346]">Metric floor plan</p><h1 className="mt-1 flex items-center gap-2 text-lg font-black"><Building2 className="h-5 w-5" />SJT Ground Floor</h1><p className="mt-1 text-xs text-[#5C4B52]">120m × 94m • 1 SVG unit = 1 metre</p></div>
+   <label className="text-xs font-bold">Start point<select value={startId} onChange={(e)=>setStartId(e.target.value)} className="mt-1.5 w-full rounded-xl border border-[rgba(160,50,85,.25)] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#EB4D6E]">{places.map((p)=><option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}</select></label>
+   <label className="text-xs font-bold">Destination<select value={destinationId} onChange={(e)=>{setDestinationId(e.target.value);setSelectedId(e.target.value)}} className="mt-1.5 w-full rounded-xl border border-[rgba(160,50,85,.25)] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#EB4D6E]">{places.map((p)=><option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}</select></label>
+   <div className="flex gap-2"><GlassButton className="flex-1" onClick={()=>setShowRoute(true)}><Route className="h-4 w-4" />Show route</GlassButton><GlassButton variant="outline" onClick={()=>setAccessible(!accessible)} aria-pressed={accessible} title="Prefer lift route"><Accessibility className={`h-4 w-4 ${accessible?'text-emerald-600':''}`} /></GlassButton></div>
+   <GlassCard variant="subtle" className="p-3"><p className="flex items-center gap-1.5 text-xs font-bold"><Footprints className="h-4 w-4 text-[#EB4D6E]" />Current route</p><p className="mt-1 text-sm font-semibold">{start.name} → {destination.name}</p><p className="mt-1 text-xs text-[#5C4B52]">Approx. {distance}m • {Math.max(1,Math.ceil(distance/75))} min • {accessible?'Lift-preferred':'Standard access'}</p></GlassCard>
+   <GlassCard variant="subtle" className="p-3"><p className="text-xs font-bold">Selected space</p><p className="mt-1 text-sm font-bold text-[#B82346]">{selected.id} — {selected.name}</p>{selected.kind==='room'&&<p className="mt-1 text-xs text-[#5C4B52]">{selected.department||'Campus facility'}{selected.capacity?` • Capacity ${selected.capacity}`:''}</p>}<div className="mt-3 flex gap-3"><button className="text-xs font-bold text-[#B82346] hover:underline" onClick={()=>setStartId(selected.id)}>Set as start</button><button className="text-xs font-bold text-[#B82346] hover:underline" onClick={()=>{setDestinationId(selected.id);setShowRoute(true)}}>Set as destination</button></div></GlassCard>
+   <div className="grid grid-cols-2 gap-2 text-[11px] text-[#5C4B52]"><span>■ Pink: rooms</span><span>■ Grey: corridors</span><span>■ Amber: stairs</span><span>■ Green: exits</span></div>
+  </aside>
+  <main className="order-1 min-h-0 flex-1 overflow-auto bg-[#FFF8FA] p-3 sm:p-6 lg:order-2"><div className="mx-auto min-w-[760px] max-w-[1320px] rounded-3xl border border-[rgba(160,50,85,.22)] bg-white p-3 shadow-xl sm:p-5"><div className="mb-3 flex justify-between text-xs text-[#5C4B52]"><span className="flex items-center gap-1.5 font-bold"><LocateFixed className="h-4 w-4 text-[#EB4D6E]" />Interactive plan</span><span className="flex items-center gap-1.5"><DoorOpen className="h-4 w-4" />Click a room for details</span></div><svg viewBox="0 0 120 94" className="h-auto w-full rounded-2xl bg-[#FFFDFE]" role="img" aria-label="SJT Ground Floor metric map"><defs><pattern id="grid" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M5 0H0V5" fill="none" stroke="#F7D8E0" strokeWidth=".16" /></pattern></defs><rect width="120" height="94" fill="url(#grid)" /><rect x="1" y="1" width="118" height="92" rx="2" fill="none" stroke="#D43154" strokeWidth=".5" />{corridors.map((v)=><rect key={v.id} {...v} fill="#E2E8F0" stroke="#94A3B8" strokeWidth=".22" />)}{rooms.map((v)=><g key={v.id} onClick={()=>setSelectedId(v.id)} className="cursor-pointer"><rect {...v} rx=".6" fill={selected.id===v.id?'#F9A8D4':'#FCE7F3'} stroke={selected.id===v.id?'#BE185D':'#E879A4'} strokeWidth={selected.id===v.id?'.65':'.3'} /><text x={v.x+v.width/2} y={v.y+v.height/2-.45} textAnchor="middle" fontSize="1.45" fontWeight="700" fill="#701A3A">{v.id}</text>{v.width>=7&&v.height>=8&&<text x={v.x+v.width/2} y={v.y+v.height/2+1.4} textAnchor="middle" fontSize=".82" fill="#9D174D">{v.name.length>19?v.name.slice(0,18)+'…':v.name}</text>}</g>)}{fixtures.map((v)=><g key={v.id} onClick={()=>setSelectedId(v.id)} className="cursor-pointer"><rect {...v} rx=".4" fill={v.kind==='exit'?'#34D399':v.kind==='lift'?'#93C5FD':'#FCD34D'} stroke={v.kind==='exit'?'#047857':v.kind==='lift'?'#1D4ED8':'#B45309'} strokeWidth=".35" /><text x={v.x+v.width/2} y={v.y+v.height/2+.5} textAnchor="middle" fontSize="1.1" fontWeight="800" fill="#1F2937">{v.id}</text></g>)}{doors.map(([id,x,y])=><circle key={id} cx={x} cy={y} r=".58" fill="#fff" stroke="#64748B" strokeWidth=".22" />)}{showRoute&&<><path d={path} fill="none" stroke="#FB7185" strokeWidth="2.1" opacity=".3" /><path d={path} fill="none" stroke="#E11D48" strokeWidth=".75" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1.8 1" /><circle {...centre(start)} r="1.25" fill="#059669" stroke="#fff" strokeWidth=".42" /><circle {...centre(destination)} r="1.25" fill="#E11D48" stroke="#fff" strokeWidth=".42" /></>}<text x="4" y="7" fontSize="2.4" fontWeight="900" fill="#701A3A">SJT • GROUND FLOOR</text><text x="4" y="10" fontSize="1.2" fill="#9D174D">Metric layout • 120m × 94m</text></svg></div></main>
+ </div>;
 }
-
-export default function MapPage() {
-  return (
-    <AppShell title="Indoor Navigation System">
-      <Suspense fallback={<div className="p-8"><LoadingSkeleton count={3} /></div>}>
-        <MapContent />
-      </Suspense>
-    </AppShell>
-  );
-}
+export default function MapPage() { return <AppShell title="SJT Ground Floor Map" noScroll><Suspense fallback={<div className="p-8 text-sm text-[#5C4B52]">Loading floor plan…</div>}><MapContent /></Suspense></AppShell>; }
