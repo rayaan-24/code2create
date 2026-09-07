@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_active_or_demo_user
 from app.models.user import User
 from app.models.navigation import NavigationNode
 from app.navigation.astar import AStarRouter, RouteResult
@@ -31,7 +31,7 @@ class ResolveRequest(BaseModel):
 def get_route(
     req: RouteRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_active_or_demo_user),
 ):
     """
     Calculates the shortest or accessible walking route between two points
@@ -111,7 +111,7 @@ def list_navigation_nodes(
     floor: Optional[str] = None,
     building_id: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_active_or_demo_user),
 ):
     """
     Returns navigable nodes and landmarks for the authenticated user's community.
@@ -146,7 +146,7 @@ def list_navigation_nodes(
 def resolve_location(
     req: ResolveRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_active_or_demo_user),
 ):
     """
     Resolves natural language location string to concrete node coordinates and info.
