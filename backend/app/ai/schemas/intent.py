@@ -4,6 +4,13 @@ from pydantic import BaseModel, Field, ConfigDict
 
 
 class IntentType(str, Enum):
+    ORGANIZATION_KNOWLEDGE = "ORGANIZATION_KNOWLEDGE"
+    GENERAL_KNOWLEDGE = "GENERAL_KNOWLEDGE"
+    CODING = "CODING"
+    EDUCATION = "EDUCATION"
+    CREATIVE = "CREATIVE"
+    WEB_SEARCH = "WEB_SEARCH"
+    MULTI_TOOL = "MULTI_TOOL"
     QUESTION = "QUESTION"
     PROCEDURE = "PROCEDURE"
     LOCATION = "LOCATION"
@@ -38,10 +45,11 @@ class ExtractedEntities(BaseModel):
 class IntentClassificationResult(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    intent: IntentType = IntentType.QUESTION
+    intent: IntentType = IntentType.GENERAL_KNOWLEDGE
     confidence: float = Field(default=0.9, ge=0.0, le=1.0)
     entities: ExtractedEntities = Field(default_factory=ExtractedEntities)
-    needs_retrieval: bool = True
+    needs_retrieval: bool = False
     needs_tool: bool = False
     target_tool: Optional[str] = None
+    tools_required: List[str] = Field(default_factory=list)
     clarification_needed: Optional[str] = None

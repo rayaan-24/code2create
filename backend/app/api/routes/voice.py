@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.voice.client import voice_client
+from app.api.routes.chat import get_chat_user
 
 router = APIRouter(prefix="/voice", tags=["Voice"])
 
@@ -17,7 +18,7 @@ class SpeechRequest(BaseModel):
 @router.post("/speech")
 async def generate_speech(
     req: SpeechRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_chat_user),
 ):
     """
     Synthesizes AI text response to human speech audio using ElevenLabs.

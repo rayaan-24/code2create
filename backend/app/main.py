@@ -32,9 +32,20 @@ from app.api.routes import (
 
 setup_logging()
 
-# Automatically create tables if not existing (e.g. SQLite / initial dev)
+# Automatically ensure pgvector extension on PostgreSQL, then create tables if not existing
+try:
+    if engine.dialect.name == "postgresql":
+        with engine.connect() as conn:
+            conn.execution_options(isolation_level="AUTOCOMMIT")
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+            conn.commit()
+            logger.info("Ensured pgvector extension in PostgreSQL.")
+except Exception as ext_err:
+    logger.warning(f"pgvector extension check notice: {ext_err}")
+
 try:
     Base.metadata.create_all(bind=engine)
+    logger.info("Database schema initialized successfully.")
 except Exception as err:
     logger.warning(f"Database schema auto-creation skipped: {err}")
 
@@ -103,7 +114,20 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Health checks
+# Root & Health checks
+@app.get("/", tags=["Root"])
+@app.head("/", tags=["Root"])
+def root_endpoint():
+    return {
+        "status": "healthy",
+        "service": settings.PROJECT_NAME,
+        "docs": "/docs",
+        "health": "/health",
+        "api_v1": settings.API_V1_STR,
+        "version": "1.0.0",
+    }
+
+
 @app.get("/health", tags=["Health"])
 @app.get(f"{settings.API_V1_STR}/health", tags=["Health"])
 async def health_check(db: Session = Depends(get_db)):

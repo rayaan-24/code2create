@@ -65,3 +65,21 @@ def get_current_user_optional(
         return get_current_user(token=token, db=db)
     except HTTPException:
         return None
+
+
+def get_active_or_demo_user(
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+) -> User:
+    """Resolve current authenticated user or fall back to default demo user for guest visitors."""
+    if current_user:
+        return current_user
+    demo_user = db.query(User).filter(User.email == "alex.rivera@nexora.edu").first()
+    if not demo_user:
+        demo_user = db.query(User).filter(User.is_active == True).first()
+    if demo_user:
+        return demo_user
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={"code": "NOT_AUTHENTICATED", "message": "Authentication required"},
+    )

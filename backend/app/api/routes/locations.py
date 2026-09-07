@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.database.session import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_active_or_demo_user
 from app.models.user import User
 from app.schemas.location import LocationRead
 from app.schemas.response import ResponseEnvelope
@@ -19,7 +19,7 @@ def get_locations(
     floor: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_active_or_demo_user),
     db: Session = Depends(get_db),
 ):
     locations, total = list_locations(
@@ -45,7 +45,7 @@ def get_locations(
 @router.get("/{location_id}", response_model=ResponseEnvelope[LocationRead])
 def get_location(
     location_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_active_or_demo_user),
     db: Session = Depends(get_db),
 ):
     location = get_location_by_id(

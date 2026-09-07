@@ -9,7 +9,13 @@ from app.models.community import Community
 from app.ai.llm_client import llm_client
 from app.ai.prompts.system import NEXORA_BASE_SYSTEM_PROMPT
 from app.ai.prompts.intent import INTENT_CLASSIFICATION_PROMPT
-from app.ai.prompts.answer import RAG_ANSWER_PROMPT
+from app.ai.prompts.answer import (
+    RAG_ANSWER_PROMPT,
+    GROUNDED_RAG_PROMPT,
+    GENERAL_AI_PROMPT,
+    WEB_SEARCH_SYNTHESIS_PROMPT,
+    MULTI_TOOL_PROMPT,
+)
 from app.ai.context.state import ConversationState
 from app.ai.context.memory import ConversationMemory
 from app.ai.context.manager import ContextManager
@@ -110,11 +116,17 @@ class AIOrchestrator:
             debug_info["current_location"] = updated_state.current_location
             debug_info["current_destination"] = updated_state.current_destination
 
-        # 6. Hybrid RAG Retrieval (Knowledge Chunks)
+        # 6. Selective Hybrid RAG Retrieval (Knowledge Chunks)
+        # RAG is NOT the gatekeeper for every question. Only retrieve for organization/campus queries.
         retrieved_context = "No community documents retrieved."
         sources: List[SourceAttribution] = []
 
-        if intent_result.needs_retrieval or intent in ["QUESTION", "PROCEDURE", "LOCATION", "SERVICE_LOOKUP"]:
+        is_community_intent = intent in [
+            "ORGANIZATION_KNOWLEDGE", "QUESTION", "PROCEDURE", 
+            "LOCATION", "SERVICE_LOOKUP", "MULTI_TOOL"
+        ]
+
+        if intent_result.needs_retrieval and is_community_intent:
             hybrid_results = self.retriever.search(
                 db=db,
                 community_id=community.id,
@@ -136,7 +148,7 @@ class AIOrchestrator:
                 debug_info["retrieval_chunks_count"] = len(hybrid_results)
                 debug_info["top_sources"] = [s.title for s in sources]
 
-        # 7. AI Tool Execution
+        # 7. AI Tool Execution (Location, Route, Procedure, Service, Web)
         tool_registry = ToolRegistry(max_tool_calls=settings.MAX_TOOL_CALLS)
         tool_results_data: List[Dict[str, Any]] = []
         structured_card: Optional[Dict[str, Any]] = None
@@ -144,8 +156,40 @@ class AIOrchestrator:
         executed_tool_name: Optional[str] = None
         executed_tool_result: Optional[Dict[str, Any]] = None
 
-        # Determine tool from intent
-        if intent == "PROCEDURE":
+        # A. Multi-Tool Execution
+        if intent == "MULTI_TOOL":
+            target_loc = entities.get("location") or ("Library" if "library" in resolved_query.lower() else "Student Services")
+            loc_res = tool_registry.execute_tool(
+                "get_location", {"query": target_loc}, db, community.id, current_user.role
+            )
+            if loc_res.status == "success" and loc_res.data:
+                tool_results_data.append({"tool": "get_location", "result": loc_res.data})
+                structured_card = {"type": "location", "location": loc_res.data}
+                executed_tool_name = "get_location"
+
+            start_loc = updated_state.current_location or "Library"
+            dest_loc = target_loc
+            route_res = tool_registry.execute_tool(
+                "calculate_route",
+                {"start_location": start_loc, "destination": dest_loc},
+                db,
+                community.id,
+                current_user.role,
+            )
+            if route_res.status == "success" and route_res.data:
+                tool_results_data.append({"tool": "calculate_route", "result": route_res.data})
+                if not structured_card:
+                    structured_card = {"type": "navigation", "navigationRoute": route_res.data}
+                actions.append(
+                    ActionItem(
+                        type=ActionType.NAVIGATE,
+                        label=f"Get Directions to {target_loc}",
+                        payload={"destination": target_loc, "route": route_res.data},
+                    )
+                )
+
+        # B. Procedure Execution
+        elif intent == "PROCEDURE":
             executed_tool_name = "get_procedure"
             target_p = entities.get("procedure") or resolved_query
             res = tool_registry.execute_tool(
@@ -155,7 +199,6 @@ class AIOrchestrator:
                 executed_tool_result = res.data
                 tool_results_data.append({"tool": "get_procedure", "result": res.data})
                 structured_card = {"type": "procedure", "procedure": res.data}
-                # Offer navigation action
                 actions.append(
                     ActionItem(
                         type=ActionType.NAVIGATE,
@@ -164,6 +207,7 @@ class AIOrchestrator:
                     )
                 )
 
+        # C. Location Execution
         elif intent == "LOCATION":
             executed_tool_name = "get_location"
             target_l = entities.get("location") or updated_state.current_destination or resolved_query
@@ -182,6 +226,7 @@ class AIOrchestrator:
                     )
                 )
 
+        # D. Navigation Execution
         elif intent == "NAVIGATION":
             executed_tool_name = "calculate_route"
             start_loc = updated_state.current_location or "Library"
@@ -198,6 +243,7 @@ class AIOrchestrator:
                 tool_results_data.append({"tool": "calculate_route", "result": res.data})
                 structured_card = {"type": "navigation", "navigationRoute": res.data}
 
+        # E. Person Lookup
         elif intent == "PERSON_LOOKUP":
             executed_tool_name = "get_person"
             target_person = entities.get("person_name") or resolved_query
@@ -209,6 +255,7 @@ class AIOrchestrator:
                 tool_results_data.append({"tool": "get_person", "result": res.data})
                 structured_card = {"type": "person", "person": res.data}
 
+        # F. Service Lookup
         elif intent == "SERVICE_LOOKUP":
             executed_tool_name = "get_service"
             target_s = entities.get("service") or resolved_query
@@ -220,9 +267,17 @@ class AIOrchestrator:
                 tool_results_data.append({"tool": "get_service", "result": res.data})
                 structured_card = {"type": "service", "service": res.data}
 
+        # G. Web Search Execution
         external_sources: List[Dict[str, Any]] = []
-        is_external_query = (intent == "EXTERNAL_INFORMATION" or any(k in resolved_query.lower() for k in ["passport", "prime minister", "visa", "external"]))
-        if is_external_query:
+        is_external_query = (
+            intent in ["WEB_SEARCH", "EXTERNAL_INFORMATION"] or 
+            any(k in resolved_query.lower() for k in [
+                "latest", "today", "current", "recent", "yesterday", "this week", 
+                "weather", "live", "ceo of", "prime minister", "president", 
+                "price", "ranking", "who won", "score", "match", "passport", "visa"
+            ])
+        )
+        if is_external_query and intent != "LOCATION":
             intent = "EXTERNAL_INFORMATION"
             executed_tool_name = "search_web"
             res = tool_registry.execute_tool(
@@ -236,39 +291,85 @@ class AIOrchestrator:
                     actions.append(
                         ActionItem(
                             type=ActionType.OPEN_WEB_SOURCE,
-                            label=f"External: {item.get('source', 'Official Web')}",
+                            label=f"Source: {item.get('source', 'Web')}",
                             payload={"url": item.get("url", "#"), "title": item.get("title", "")},
                         )
                     )
 
-        # 8. Grounded LLM Answer Generation
-        # If community factual question has zero verified evidence and no tool results, return refusal fallback
-        if intent == "QUESTION" and not sources and not is_external_query and not tool_results_data:
-            raw_answer = UNVERIFIED_STANDARD_REFUSAL
-        else:
-            history_context = self.context_mgr.get_formatted_history(session)
-            system_prompt = NEXORA_BASE_SYSTEM_PROMPT.format(
-                community_name=community.name,
-                community_id=community.id,
-                user_name=current_user.name,
-                user_role=current_user.role,
-                user_department=current_user.department or "General Community",
-                preferred_language="English",
-            )
+        # 8. Intelligent Hybrid Answer Generation via LLM
+        history_context = self.context_mgr.get_formatted_history(session)
+        system_prompt = NEXORA_BASE_SYSTEM_PROMPT.format(
+            community_name=community.name,
+            community_id=community.id,
+            user_name=current_user.name,
+            user_role=current_user.role,
+            user_department=current_user.department or "General Community",
+            preferred_language="English",
+        )
 
-            answer_prompt = RAG_ANSWER_PROMPT.format(
+        # Route to appropriate response prompt
+        if intent in ["GENERAL_KNOWLEDGE", "CODING", "EDUCATION", "CREATIVE", "GENERAL_CHAT"]:
+            answer_prompt = GENERAL_AI_PROMPT.format(
                 user_query=sanitized_input,
                 conversation_context=history_context,
-                retrieved_knowledge=retrieved_context,
-                tool_results=str(tool_results_data) if tool_results_data else "No specific tool results.",
             )
-
             raw_answer = await llm_client.generate(
                 prompt=answer_prompt,
                 system_prompt=system_prompt,
                 max_tokens=settings.SGLANG_MAX_TOKENS,
-                temperature=settings.SGLANG_TEMPERATURE,
+                temperature=0.3,
             )
+
+        elif intent in ["WEB_SEARCH", "EXTERNAL_INFORMATION"]:
+            search_data_str = ""
+            for r in external_sources:
+                search_data_str += f"- {r.get('title')}: {r.get('snippet')} (Source: {r.get('source')})\n"
+            if not search_data_str:
+                search_data_str = str(tool_results_data) if tool_results_data else "Web search completed with general results."
+
+            answer_prompt = WEB_SEARCH_SYNTHESIS_PROMPT.format(
+                user_query=sanitized_input,
+                conversation_context=history_context,
+                search_results=search_data_str,
+            )
+            raw_answer = await llm_client.generate(
+                prompt=answer_prompt,
+                system_prompt=system_prompt,
+                max_tokens=settings.SGLANG_MAX_TOKENS,
+                temperature=0.2,
+            )
+
+        elif intent == "MULTI_TOOL":
+            answer_prompt = MULTI_TOOL_PROMPT.format(
+                user_query=sanitized_input,
+                conversation_context=history_context,
+                retrieved_knowledge=retrieved_context,
+                tool_results=str(tool_results_data),
+            )
+            raw_answer = await llm_client.generate(
+                prompt=answer_prompt,
+                system_prompt=system_prompt,
+                max_tokens=settings.SGLANG_MAX_TOKENS,
+                temperature=0.2,
+            )
+
+        else:
+            # Organization knowledge, location, procedures
+            if not sources and not tool_results_data:
+                raw_answer = UNVERIFIED_STANDARD_REFUSAL
+            else:
+                answer_prompt = GROUNDED_RAG_PROMPT.format(
+                    user_query=sanitized_input,
+                    conversation_context=history_context,
+                    retrieved_knowledge=retrieved_context,
+                    tool_results=str(tool_results_data) if tool_results_data else "No specific tool results.",
+                )
+                raw_answer = await llm_client.generate(
+                    prompt=answer_prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=settings.SGLANG_MAX_TOKENS,
+                    temperature=settings.SGLANG_TEMPERATURE,
+                )
 
         # 9. Grounding & Hallucination Guard
         final_answer = GroundingValidator.enforce_grounding(
@@ -276,8 +377,9 @@ class AIOrchestrator:
             answer=raw_answer,
             retrieved_chunks=sources,
             tool_results=tool_results_data,
-            needs_retrieval=(intent in ["QUESTION", "PROCEDURE", "LOCATION", "SERVICE_LOOKUP", "PERSON_LOOKUP"]),
+            needs_retrieval=intent_result.needs_retrieval and is_community_intent,
             is_external=is_external_query,
+            intent=intent,
         )
 
         # 10. Update Conversation Memory & Persist Turn
@@ -290,16 +392,20 @@ class AIOrchestrator:
             sources=sources,
         )
 
+        tools_used_list = [t["tool"] for t in tool_results_data]
+        if sources:
+            tools_used_list.append("rag")
+
         response_obj = AIResponse(
             answer=final_answer,
             intent=intent,
             actions=actions,
             sources=sources,
             external_sources=external_sources,
-            tools_used=[executed_tool_name] if executed_tool_name else [],
+            tools_used=tools_used_list,
             is_external=is_external_query,
             structured_card=structured_card,
-            requires_navigation=(intent == "NAVIGATION" or any(a.type == ActionType.NAVIGATE for a in actions)),
+            requires_navigation=(intent in ["NAVIGATION", "MULTI_TOOL"] or any(a.type == ActionType.NAVIGATE for a in actions)),
             grounded=True,
             retrieval_count=len(sources),
             debug_info=debug_info if debug_mode else None,
@@ -314,7 +420,10 @@ class AIOrchestrator:
         )
 
         duration = round((time.time() - start_time) * 1000, 2)
-        logger.info(f"AI Orchestrator finished turn for user {current_user.id} in {duration}ms (Intent: {intent})")
+        # Observability turn log
+        logger.info(
+            f"[CHAT] intent={intent} tools={tools_used_list} llm={settings.effective_llm_model} duration={duration}ms status=success"
+        )
 
         return response_obj
 

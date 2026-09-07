@@ -84,6 +84,7 @@ class GroundingValidator:
         tool_results: List[Any],
         needs_retrieval: bool = True,
         is_external: bool = False,
+        intent: Optional[str] = None,
     ) -> str:
         """
         Enforce strict refusal if query required community retrieval but found zero evidence,
@@ -92,12 +93,17 @@ class GroundingValidator:
         if not answer or not answer.strip():
             return UNVERIFIED_STANDARD_REFUSAL
 
-        if is_external:
+        # Non-community intents must never be blocked by community grounding refusal
+        non_community_intents = {
+            "GENERAL_KNOWLEDGE", "CODING", "EDUCATION", "CREATIVE", 
+            "WEB_SEARCH", "GENERAL_CHAT", "EXTERNAL_INFORMATION"
+        }
+        if is_external or (intent and intent in non_community_intents) or not needs_retrieval:
             return answer
 
         has_evidence = bool(retrieved_chunks or tool_results)
 
-        # 1. Zero evidence check
+        # 1. Zero evidence check for organization/community-specific questions
         if needs_retrieval and not has_evidence:
             lower_ans = answer.lower()
             if not ("couldn't verify" in lower_ans or "not available" in lower_ans or "unable to verify" in lower_ans):

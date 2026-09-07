@@ -34,6 +34,19 @@ class Settings(BaseSettings):
         "http://localhost:3001",
     ]
 
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str):
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
     # AI / SGLang / RAG Configuration (Phase 3 & Phase 6)
     SGLANG_BASE_URL: str = "http://localhost:30000"
     SGLANG_MODEL: str = "meta-llama/Llama-3.1-8B-Instruct"
@@ -47,7 +60,7 @@ class Settings(BaseSettings):
     MAX_CONTEXT_TOKENS: int = 4096
     RAG_MIN_RELEVANCE_SCORE: float = 0.35
     MAX_TOOL_CALLS: int = 5
-    AI_REQUEST_TIMEOUT: int = 30
+    AI_REQUEST_TIMEOUT: int = 8
     RATE_LIMIT_PER_MINUTE: int = 60
 
     # Optional AI LLM Provider Keys & Endpoints (Groq, OpenAI, SGLang, OpenRouter, etc.)
@@ -79,7 +92,7 @@ class Settings(BaseSettings):
     @property
     def effective_llm_model(self) -> str:
         if self.GROQ_API_KEY and self.SGLANG_MODEL == "meta-llama/Llama-3.1-8B-Instruct" and "groq.com" in self.effective_llm_base_url:
-            return "llama-3.3-70b-versatile"
+            return "openai/gpt-oss-20b"
         if self.OPENAI_API_KEY and self.SGLANG_MODEL == "meta-llama/Llama-3.1-8B-Instruct" and "openai.com" in self.effective_llm_base_url:
             return "gpt-4o-mini"
         return self.SGLANG_MODEL
