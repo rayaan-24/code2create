@@ -1,57 +1,99 @@
-import math
-import hashlib
+import logging
+import os
 from typing import List, Optional
 from app.core.config import settings
+
+logger = logging.getLogger("nexora.ai.embeddings")
+
+# Disable HuggingFace symlinks warning on Windows
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
 
 class EmbeddingProvider:
     """
-    Configurable embedding provider abstraction.
-    Provides standard 384-dimensional dense semantic vectors with L2 normalization.
+    Production-grade Neural Embedding Provider using SentenceTransformers.
+    Generates deterministic, semantic 384-dimensional dense vectors
+    (using sentence-transformers/all-MiniLM-L6-v2) with L2 normalization
+    for PostgreSQL + pgvector cosine similarity retrieval.
     """
 
-    def __init__(self, dimension: int = 384):
+    def __init__(self, model_name: Optional[str] = None, dimension: int = 384):
+        self.model_name = model_name or settings.EMBEDDING_MODEL
         self.dimension = dimension
-        self.model_name = settings.EMBEDDING_MODEL
+        self._model = None
+        self._device = "cpu"
+
+    def _load_model(self):
+        """
+        Lazily loads and caches the SentenceTransformer model once on CPU.
+        Thread-safe in Python GIL and reusable across FastAPI requests.
+        """
+        if self._model is None:
+            logger.info("Initializing neural embedding model: %s on %s", self.model_name, self._device)
+            try:
+                from sentence_transformers import SentenceTransformer
+
+                model = SentenceTransformer(self.model_name, device=self._device)
+                dim_getter = getattr(model, "get_embedding_dimension", getattr(model, "get_sentence_embedding_dimension", None))
+                dim = dim_getter() if dim_getter else 384
+
+                if dim != self.dimension:
+                    raise RuntimeError(
+                        f"Embedding model '{self.model_name}' produces {dim}-dimensional vectors, "
+                        f"which does not match the configured PostgreSQL pgvector dimension ({self.dimension}). "
+                        f"A database schema migration would be required before switching models."
+                    )
+
+                self._model = model
+                logger.info("Neural embedding model '%s' loaded successfully (dim=%d).", self.model_name, dim)
+            except Exception as e:
+                logger.error("Critical failure loading neural embedding model '%s': %s", self.model_name, e)
+                raise RuntimeError(
+                    f"CRITICAL: Failed to load real embedding model '{self.model_name}': {e}. "
+                    "MD5/random fallback vectors are strictly disabled in production."
+                ) from e
+
+        return self._model
 
     def embed_text(self, text: str) -> List[float]:
-        """Generate normalized dense embedding vector for text."""
-        return self._generate_dense_vector(text)
-
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        """Generate normalized dense embedding vectors for a batch of texts."""
-        return [self.embed_text(t) for t in texts]
-
-    def _generate_dense_vector(self, text: str) -> List[float]:
         """
-        Deterministic, semantic-preserving sub-word n-gram vectorizer.
-        Generates consistent 384-dimensional unit vectors for cosine similarity.
+        Generate a 384-dimensional L2-normalized dense embedding vector for a single text or query.
         """
-        words = text.lower().split()
-        if not words:
+        if not text or not text.strip():
             return [0.0] * self.dimension
 
-        vec = [0.0] * self.dimension
+        model = self._load_model()
+        vec = model.encode(
+            text.strip(),
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
+        return [float(x) for x in vec]
 
-        # Combine word unigrams and bigrams
-        tokens = list(words)
-        for i in range(len(words) - 1):
-            tokens.append(f"{words[i]}_{words[i+1]}")
+    def embed_documents(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
+        """
+        Generate 384-dimensional L2-normalized dense embedding vectors for a batch of documents or chunks.
+        """
+        if not texts:
+            return []
 
-        for token in tokens:
-            h = int(hashlib.md5(token.encode("utf-8")).hexdigest(), 16)
-            idx = h % self.dimension
-            sign = 1.0 if ((h >> 8) & 1) == 1 else -1.0
-            weight = 1.0 + (len(token) / 10.0)
-            vec[idx] += sign * weight
+        model = self._load_model()
+        cleaned_texts = [t.strip() if t else "" for t in texts]
 
-        # L2-normalize vector so dot product equals cosine similarity
-        norm = math.sqrt(sum(x * x for x in vec))
-        if norm > 1e-9:
-            vec = [x / norm for x in vec]
+        vectors = model.encode(
+            cleaned_texts,
+            batch_size=batch_size,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
+        return [[float(x) for x in row] for row in vectors]
 
-        return vec
+    def embed_texts(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
+        """Alias for embed_documents for batch embedding."""
+        return self.embed_documents(texts, batch_size=batch_size)
 
 
-# Global embedding instance
+# Global singleton embedding instance
 embedding_provider = EmbeddingProvider()

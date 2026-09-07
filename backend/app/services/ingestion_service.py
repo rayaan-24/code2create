@@ -131,11 +131,12 @@ class DocumentIngestionService:
                 verification_status=status_str,
             )
 
-            # Step 6: Attach metadata, generate 384-dim embeddings & prepare KnowledgeChunk records
-            knowledge_chunks: List[KnowledgeChunk] = []
-            for chunk in raw_chunks:
-                embedding_vector = embedding_provider.embed_text(chunk.content)
+            # Step 6: Attach metadata, generate 384-dim neural embeddings (batched) & prepare KnowledgeChunk records
+            chunk_texts = [c.content for c in raw_chunks]
+            embedding_vectors = embedding_provider.embed_documents(chunk_texts)
 
+            knowledge_chunks: List[KnowledgeChunk] = []
+            for chunk, embedding_vector in zip(raw_chunks, embedding_vectors):
                 chunk_metadata = {
                     **chunk.metadata,
                     "file_name": file_name,
