@@ -2,8 +2,9 @@ import json
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Index
+from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Index, event
 from sqlalchemy.orm import relationship
+from pgvector.sqlalchemy import Vector
 
 from app.database.base import Base
 
@@ -16,7 +17,8 @@ class KnowledgeChunk(Base):
     community_id = Column(String(36), ForeignKey("communities.id", ondelete="CASCADE"), nullable=False, index=True)
     
     content = Column(Text, nullable=False)
-    embedding_json = Column(Text, nullable=True)  # JSON-serialized List[float]
+    embedding = Column(Vector(384), nullable=True)  # Native pgvector 384-dimensional dense vector
+    embedding_json = Column(Text, nullable=True)   # Backward-compatible serialized JSON fallback
     
     page_number = Column(Integer, nullable=True)
     section = Column(String(255), nullable=True)
@@ -37,20 +39,16 @@ class KnowledgeChunk(Base):
     )
 
     @property
-    def embedding(self) -> List[float]:
-        if not self.embedding_json:
-            return []
-        try:
-            return json.loads(self.embedding_json)
-        except Exception:
-            return []
-
-    @embedding.setter
-    def embedding(self, values: List[float]):
-        if values is None:
-            self.embedding_json = None
-        else:
-            self.embedding_json = json.dumps(values)
+    def vector(self) -> List[float]:
+        """Returns embedding vector as a list, falling back to embedding_json if unmigrated."""
+        if self.embedding is not None:
+            return list(self.embedding)
+        if self.embedding_json:
+            try:
+                return json.loads(self.embedding_json)
+            except Exception:
+                return []
+        return []
 
     @property
     def metadata_dict(self) -> Dict[str, Any]:
@@ -67,3 +65,13 @@ class KnowledgeChunk(Base):
             self.metadata_json = None
         else:
             self.metadata_json = json.dumps(data)
+
+
+# Synchronize embedding_json whenever embedding is set for safety and backward compatibility
+@event.listens_for(KnowledgeChunk.embedding, 'set')
+def _sync_embedding_json(target, value, oldvalue, initiator):
+    if value is not None:
+        try:
+            target.embedding_json = json.dumps(list(value))
+        except Exception:
+            pass

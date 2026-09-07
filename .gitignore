@@ -52,3 +52,5 @@ __pycache__/
 *.sqlite
 *.sqlite3
 backend/*.db
+uploads/
+backend/uploads/

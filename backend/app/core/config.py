@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     # Database configuration
     DATABASE_URL: str = "sqlite:///./nexora.db"
 
+    # Document Upload & Storage
+    UPLOAD_DIR: str = "uploads"
+    MAX_UPLOAD_SIZE_BYTES: int = 25 * 1024 * 1024  # 25 MB max per file
+
     # JWT Authentication
     JWT_SECRET_KEY: str = "nexora_super_secret_jwt_signing_key_change_in_production_2026"
     JWT_ALGORITHM: str = "HS256"

@@ -64,3 +64,18 @@ class DocumentRead(DocumentBase):
     versions: List[DocumentVersionRead] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentIngestionResponse(BaseModel):
+    document_id: str
+    title: str
+    file_name: str
+    file_size_bytes: int
+    storage_key: str
+    file_checksum: str
+    pages_parsed: int
+    chunks_created: int
+    verification_status: str
+    message: str = "Document successfully ingested and indexed"
+
+    model_config = ConfigDict(from_attributes=True)

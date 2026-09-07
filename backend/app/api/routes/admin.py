@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query, Request, HTTPException, status
+from fastapi import APIRouter, Depends, Query, Request, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.dependencies.permissions import require_admin
@@ -31,7 +31,9 @@ from app.schemas.document import (
     DocumentRead,
     DocumentVerifyRequest,
     DocumentUploadNewVersion,
+    DocumentIngestionResponse,
 )
+from app.services.ingestion_service import document_ingestion_service
 from app.schemas.announcement import (
     AnnouncementCreate,
     AnnouncementUpdate,
@@ -534,6 +536,53 @@ def admin_create_document(
         ip_address=client_ip,
     )
     return ResponseEnvelope(data=DocumentRead.model_validate(doc))
+
+
+@router.post("/documents/upload", response_model=ResponseEnvelope[DocumentIngestionResponse])
+async def admin_upload_and_ingest_document(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    auto_verify: bool = Form(True),
+    req: Request = None,
+    current_admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Admin document ingestion endpoint.
+    Uploads document file, stores original, parses & cleans text, splits into semantic chunks,
+    generates dense embeddings, attaches metadata, and stores chunks in database.
+    """
+    file_bytes = await file.read()
+    result = document_ingestion_service.ingest_document(
+        db=db,
+        community_id=current_admin.community_id,
+        file_name=file.filename or "document.txt",
+        file_bytes=file_bytes,
+        user_id=current_admin.id,
+        title=title,
+        description=description,
+        auto_verify=auto_verify,
+    )
+
+    client_ip = req.client.host if (req and req.client) else "127.0.0.1"
+    log_audit_event(
+        db=db,
+        community_id=current_admin.community_id,
+        user_id=current_admin.id,
+        action=AuditAction.CREATE,
+        entity_type="document_ingestion",
+        entity_id=result.document_id,
+        metadata_json={
+            "file_name": result.file_name,
+            "chunks_created": result.chunks_created,
+            "pages_parsed": result.pages_parsed,
+            "checksum": result.file_checksum,
+        },
+        ip_address=client_ip,
+    )
+
+    return ResponseEnvelope(data=result)
 
 
 @router.post("/documents/{document_id}/version", response_model=ResponseEnvelope[DocumentRead])

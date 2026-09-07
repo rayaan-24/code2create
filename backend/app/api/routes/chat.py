@@ -15,9 +15,7 @@ from app.models.conversation import ConversationSession, ConversationMessage
 from app.schemas.response import ResponseEnvelope
 from app.ai.orchestrator import orchestrator
 from app.ai.schemas.response import AIResponse
-from app.ai.retrieval.ingestion import DocumentParser
-from app.ai.retrieval.chunking import SemanticChunker
-from app.ai.retrieval.embeddings import embedding_provider
+from app.services.ingestion_service import document_ingestion_service
 
 logger = logging.getLogger("nexora.api.chat")
 router = APIRouter(prefix="/chat", tags=["AI Chat & Knowledge Ingestion"])
@@ -110,72 +108,25 @@ async def ingest_document(
             detail="Uploaded file is empty",
         )
 
-    # 1. Parse document pages
-    try:
-        pages = DocumentParser.parse_file(file_bytes, file.filename)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Document parsing failed: {e}",
-        )
-
-    if not pages:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No readable text could be extracted from the document",
-        )
-
-    # 2. Record Document in database
-    doc_record = Document(
+    result = document_ingestion_service.ingest_document(
+        db=db,
         community_id=current_user.community_id,
+        file_name=file.filename or "document.txt",
+        file_bytes=file_bytes,
+        user_id=current_user.id,
         title=title,
-        file_name=file.filename,
-        file_type=file.filename.split(".")[-1].lower(),
-        uploaded_by=current_user.id,
-        verification_status=verification_status,
-        description=f"Indexed with {len(pages)} pages",
+        auto_verify=(verification_status.upper() == "VERIFIED"),
     )
-    db.add(doc_record)
-    db.commit()
-    db.refresh(doc_record)
-
-    # 3. Chunk pages
-    chunker = SemanticChunker(target_chunk_chars=500, overlap_chars=80)
-    chunks = chunker.chunk_pages(
-        pages=pages,
-        document_id=doc_record.id,
-        community_id=current_user.community_id,
-        document_title=title,
-        verification_status=verification_status,
-    )
-
-    # 4. Generate embeddings and persist chunks
-    created_chunks = 0
-    for ch in chunks:
-        emb = embedding_provider.embed_text(ch.content)
-        chunk_obj = KnowledgeChunk(
-            document_id=doc_record.id,
-            community_id=current_user.community_id,
-            content=ch.content,
-            page_number=ch.page_number,
-            section=ch.section,
-            chunk_index=ch.chunk_index,
-            token_count=ch.token_count,
-            verification_status=verification_status,
-        )
-        chunk_obj.embedding = emb
-        chunk_obj.metadata_dict = ch.metadata
-        db.add(chunk_obj)
-        created_chunks += 1
-
-    db.commit()
 
     return ResponseEnvelope(
         data={
-            "document_id": doc_record.id,
-            "title": title,
-            "pages_parsed": len(pages),
-            "chunks_indexed": created_chunks,
-            "verification_status": verification_status,
+            "document_id": result.document_id,
+            "title": result.title,
+            "file_name": result.file_name,
+            "pages_parsed": result.pages_parsed,
+            "chunks_indexed": result.chunks_created,
+            "verification_status": result.verification_status,
+            "storage_key": result.storage_key,
+            "checksum": result.file_checksum,
         }
     )
