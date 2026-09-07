@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Index, event
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 
@@ -19,6 +20,7 @@ class KnowledgeChunk(Base):
     content = Column(Text, nullable=False)
     embedding = Column(Vector(384), nullable=True)  # Native pgvector 384-dimensional dense vector
     embedding_json = Column(Text, nullable=True)   # Backward-compatible serialized JSON fallback
+    search_vector = Column(TSVECTOR().with_variant(Text, "sqlite"), nullable=True)  # PostgreSQL FTS tsvector
     
     page_number = Column(Integer, nullable=True)
     section = Column(String(255), nullable=True)
@@ -36,6 +38,7 @@ class KnowledgeChunk(Base):
 
     __table_args__ = (
         Index("ix_knowledge_chunks_community_status", "community_id", "verification_status"),
+        Index("idx_knowledge_chunks_search_vector_gin", "search_vector", postgresql_using="gin"),
     )
 
     @property
