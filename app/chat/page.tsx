@@ -115,7 +115,7 @@ function ChatContent() {
       return;
     }
 
-    const sanitizedText = text.strip ? text.strip() : text.trim();
+    const sanitizedText = text.trim();
     console.log('[Chat Page] Sending chat prompt:', sanitizedText);
 
     const userMsg: ChatMessage = {
