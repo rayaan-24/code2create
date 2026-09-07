@@ -162,7 +162,10 @@ class HybridRetriever:
             norm_v = data["norm_v"]
             norm_k = data["norm_k"]
 
-            base_fused = (norm_v * self.vector_weight) + (norm_k * self.keyword_weight)
+            # Single-channel strength preservation: ensure strong semantic matches aren't penalized when keyword match is 0
+            max_single = max(norm_v, norm_k)
+            weighted_avg = (norm_v * self.vector_weight) + (norm_k * self.keyword_weight)
+            base_fused = max(max_single * 0.85, weighted_avg)
 
             # Verification bonus
             is_verified = getattr(chunk, "verification_status", "VERIFIED") == "VERIFIED"

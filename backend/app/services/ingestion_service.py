@@ -3,6 +3,7 @@ import os
 import uuid
 from typing import Optional, List
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -209,6 +210,7 @@ class DocumentIngestionService:
                     content=chunk.content,
                     embedding=embedding_vector,
                     embedding_json=json.dumps(embedding_vector),
+                    search_vector=func.to_tsvector('english', chunk.content),
                     page_number=chunk.page_number,
                     section=chunk.section,
                     chunk_index=chunk.chunk_index,
@@ -331,6 +333,7 @@ class DocumentIngestionService:
                 content=chunk.content,
                 embedding=embedding_vector,
                 embedding_json=json.dumps(embedding_vector),
+                search_vector=func.to_tsvector('english', chunk.content),
                 page_number=chunk.page_number,
                 section=chunk.section,
                 chunk_index=chunk.chunk_index,
