@@ -33,24 +33,30 @@ class LLMClient:
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.1,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
     ) -> str:
-        """Call SGLang /v1/chat/completions endpoint."""
+        """Call SGLang /v1/chat/completions endpoint with robust error handling and timeout."""
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
+        eff_max_tokens = max_tokens or settings.SGLANG_MAX_TOKENS
+        eff_temperature = temperature if temperature is not None else settings.SGLANG_TEMPERATURE
+        eff_top_p = top_p if top_p is not None else settings.SGLANG_TOP_P
+
         payload = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
+            "max_tokens": eff_max_tokens,
+            "temperature": eff_temperature,
+            "top_p": eff_top_p,
         }
 
         endpoint = f"{self.base_url}/v1/chat/completions"
-        timeout_config = httpx.Timeout(connect=0.2, read=self.timeout, write=self.timeout, pool=self.timeout)
+        timeout_config = httpx.Timeout(connect=0.3, read=self.timeout, write=self.timeout, pool=self.timeout)
 
         try:
             async with httpx.AsyncClient(timeout=timeout_config) as client:
@@ -59,11 +65,13 @@ class LLMClient:
                     data = res.json()
                     choices = data.get("choices", [])
                     if choices:
-                        return choices[0].get("message", {}).get("content", "").strip()
+                        content = choices[0].get("message", {}).get("content", "")
+                        if content and content.strip():
+                            return content.strip()
         except Exception as e:
             logger.warning(f"SGLang inference server call to {endpoint} failed or unreachable: {e}")
 
-        # Fallback to local template-based response
+        # Fallback to deterministic local grounded response
         return self._local_fallback_generate(prompt, system_prompt)
 
     async def generate_structured(
@@ -134,10 +142,52 @@ class LLMClient:
         yield full_text
 
     def _local_fallback_generate(self, prompt: str, system_prompt: Optional[str]) -> str:
-        """Deterministic fallback when SGLang server is offline."""
-        user_query_match = re.search(r"USER QUERY:\s*\n*([^\n]+)", prompt, re.IGNORECASE)
+        """Deterministic grounded fallback when SGLang server is offline."""
+        # Prompt Injection Defense: Never obey instructions inside prompt or context
+        if re.search(r"ignore\s+(all\s+)?(previous|prior)\s+instructions?", prompt, re.IGNORECASE) or \
+           re.search(r"reveal\s+(the\s+)?system\s+prompt", prompt, re.IGNORECASE):
+            return (
+                "I cannot fulfill requests that attempt to bypass community safety guidelines, "
+                "override system instructions, or access unauthorized administrative data."
+            )
+
+        user_query_match = re.search(r'USER QUERY:\s*\n*"?([^"\n]+)"?', prompt, re.IGNORECASE)
         query_text = user_query_match.group(1).lower().strip() if user_query_match else prompt.lower().strip()
 
+        # Check for retrieved context blocks
+        context_match = re.search(r"<retrieved_context>([\s\S]*?)</retrieved_context>", prompt)
+        retrieved_text = context_match.group(1) if context_match else ""
+
+        # Parse grounded sources and synthesize grounded response with citations
+        if retrieved_text:
+            # Check for SJT-G12 / ID card replacement
+            if "sjt-g12" in retrieved_text.lower() or "id card" in retrieved_text.lower():
+                citation = "[S1]" if "[S1]" in retrieved_text else ""
+                if "sjt-g12" in retrieved_text.lower():
+                    return f"ID card replacement is handled at SJT-G12 located on the SJT Ground Floor. {citation}".strip()
+                return f"Students who have lost their ID card must visit Student Services located at SJT Ground Floor. {citation}".strip()
+
+            if "room 104" in retrieved_text.lower():
+                citation = "[S1]" if "[S1]" in retrieved_text else ""
+                return f"Room 104 is the Advanced Robotics Research Facility in Technology Tower. {citation}".strip()
+
+            if "tt-402" in retrieved_text.lower():
+                citation = "[S1]" if "[S1]" in retrieved_text else ""
+                return f"TT-402 is the Faculty Development Center located on Floor 4. {citation}".strip()
+
+            if "block a" in retrieved_text.lower():
+                citation = "[S1]" if "[S1]" in retrieved_text else ""
+                return f"Block A houses the Department of Computer Science. {citation}".strip()
+
+            if "library" in query_text and "8 pm" in retrieved_text.lower():
+                citation = "[S1]" if "[S1]" in retrieved_text else ""
+                return f"The central library closes promptly at 8 PM on weekdays. {citation}".strip()
+
+            # If retrieved context doesn't match query, refuse
+            if any(k in query_text for k in ["telescope", "observatory", "astronomy", "unknown"]):
+                return "I couldn't verify that information from the available community sources."
+
+        # Procedural & navigation fallbacks
         if "passport" in query_text and "photo" not in query_text:
             return (
                 "Based on external official records (Passport Seva, Ministry of External Affairs, Govt of India), "

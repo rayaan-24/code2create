@@ -29,13 +29,18 @@ class Settings(BaseSettings):
         "http://localhost:3001",
     ]
 
-    # AI / SGLang / RAG Configuration (Phase 3)
+    # AI / SGLang / RAG Configuration (Phase 3 & Phase 6)
     SGLANG_BASE_URL: str = "http://localhost:30000"
     SGLANG_MODEL: str = "meta-llama/Llama-3.1-8B-Instruct"
+    SGLANG_TEMPERATURE: float = 0.1
+    SGLANG_MAX_TOKENS: int = 1024
+    SGLANG_TOP_P: float = 0.95
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
     VECTOR_SEARCH_TOP_K: int = 10
     RERANK_TOP_K: int = 5
+    MAX_CONTEXT_CHUNKS: int = 5
     MAX_CONTEXT_TOKENS: int = 4096
+    RAG_MIN_RELEVANCE_SCORE: float = 0.35
     MAX_TOOL_CALLS: int = 5
     AI_REQUEST_TIMEOUT: int = 30
     RATE_LIMIT_PER_MINUTE: int = 60

@@ -13,6 +13,7 @@ from app.ai.prompts.answer import RAG_ANSWER_PROMPT
 from app.ai.context.state import ConversationState
 from app.ai.context.memory import ConversationMemory
 from app.ai.context.manager import ContextManager
+from app.ai.context.grounding_context import GroundingContextBuilder
 from app.ai.retrieval.hybrid_search import HybridRetriever
 from app.ai.retrieval.reranking import Reranker
 from app.ai.tools.registry import ToolRegistry
@@ -118,9 +119,18 @@ class AIOrchestrator:
                 db=db,
                 community_id=community.id,
                 query=resolved_query,
-                top_k=settings.VECTOR_SEARCH_TOP_K,
+                top_k=settings.RERANK_TOP_K,
+                min_score=settings.RAG_MIN_RELEVANCE_SCORE,
             )
-            retrieved_context, sources = self.reranker.rerank_and_format(hybrid_results)
+            if hybrid_results:
+                retrieved_context, sources = GroundingContextBuilder.build_grounded_context(
+                    retrieved_results=hybrid_results,
+                    max_chunks=settings.MAX_CONTEXT_CHUNKS,
+                    max_tokens=settings.MAX_CONTEXT_TOKENS,
+                )
+            else:
+                retrieved_context = "No verified community documents found for this query."
+                sources = []
 
             if debug_mode:
                 debug_info["retrieval_chunks_count"] = len(hybrid_results)
@@ -232,28 +242,33 @@ class AIOrchestrator:
                     )
 
         # 8. Grounded LLM Answer Generation
-        history_context = self.context_mgr.get_formatted_history(session)
-        system_prompt = NEXORA_BASE_SYSTEM_PROMPT.format(
-            community_name=community.name,
-            community_id=community.id,
-            user_name=current_user.name,
-            user_role=current_user.role,
-            user_department=current_user.department or "General Community",
-            preferred_language="English",
-        )
+        # If community question has zero verified evidence, immediately return refusal fallback
+        if (intent == "QUESTION" or (intent_result.needs_retrieval and not executed_tool_name)) and not sources and not is_external_query:
+            raw_answer = UNVERIFIED_STANDARD_REFUSAL
+        else:
+            history_context = self.context_mgr.get_formatted_history(session)
+            system_prompt = NEXORA_BASE_SYSTEM_PROMPT.format(
+                community_name=community.name,
+                community_id=community.id,
+                user_name=current_user.name,
+                user_role=current_user.role,
+                user_department=current_user.department or "General Community",
+                preferred_language="English",
+            )
 
-        answer_prompt = RAG_ANSWER_PROMPT.format(
-            user_query=sanitized_input,
-            conversation_context=history_context,
-            retrieved_knowledge=retrieved_context,
-            tool_results=str(tool_results_data) if tool_results_data else "No specific tool results.",
-        )
+            answer_prompt = RAG_ANSWER_PROMPT.format(
+                user_query=sanitized_input,
+                conversation_context=history_context,
+                retrieved_knowledge=retrieved_context,
+                tool_results=str(tool_results_data) if tool_results_data else "No specific tool results.",
+            )
 
-        raw_answer = await llm_client.generate(
-            prompt=answer_prompt,
-            system_prompt=system_prompt,
-            max_tokens=1024,
-        )
+            raw_answer = await llm_client.generate(
+                prompt=answer_prompt,
+                system_prompt=system_prompt,
+                max_tokens=settings.SGLANG_MAX_TOKENS,
+                temperature=settings.SGLANG_TEMPERATURE,
+            )
 
         # 9. Grounding & Hallucination Guard
         final_answer = GroundingValidator.enforce_grounding(
@@ -285,6 +300,8 @@ class AIOrchestrator:
             is_external=is_external_query,
             structured_card=structured_card,
             requires_navigation=(intent == "NAVIGATION" or any(a.type == ActionType.NAVIGATE for a in actions)),
+            grounded=True,
+            retrieval_count=len(sources),
             debug_info=debug_info if debug_mode else None,
         )
 

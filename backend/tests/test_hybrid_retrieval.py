@@ -573,12 +573,12 @@ def test_metadata_and_source_attribution_to_dict(db_session_hybrid):
     assert "retrieval_sources" in d
 
 
-def test_sqlite_fallback_behavior(db_session_hybrid, caplog):
+def test_sqlite_fallback_behavior(db_session_hybrid):
     """
     STEP 13.15: Verify that SQLite database engine triggers the test fallback gracefully
-    and logs an informative notice.
+    and logs an informative warning notice.
     """
-    import logging
+    from unittest.mock import patch
     comm = Community(id="comm_sqlite_test", name="SQLite Community")
     db_session_hybrid.add(comm)
 
@@ -593,7 +593,7 @@ def test_sqlite_fallback_behavior(db_session_hybrid, caplog):
     db_session_hybrid.add(chunk)
     db_session_hybrid.commit()
 
-    with caplog.at_level(logging.WARNING, logger="app.ai.retrieval.keyword_search"):
+    with patch("app.ai.retrieval.keyword_search.logger.warning") as mock_warn:
         results = KeywordSearchEngine.search(
             db=db_session_hybrid,
             community_id=comm.id,
@@ -603,4 +603,5 @@ def test_sqlite_fallback_behavior(db_session_hybrid, caplog):
 
     assert len(results) == 1
     assert results[0].chunk.id == "c_sec"
-    assert "SQLite detected in KeywordSearchEngine" in caplog.text
+    assert mock_warn.called
+    assert "SQLite detected in KeywordSearchEngine" in mock_warn.call_args[0][0]

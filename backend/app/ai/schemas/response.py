@@ -30,6 +30,15 @@ class SourceAttribution(BaseModel):
     confidence_score: float = 1.0
     verified: bool = True
     verified_at: Optional[str] = None
+    # Phase 6 structured citation metadata
+    id: Optional[str] = None  # e.g. "S1", "S2"
+    chunk_id: Optional[str] = None
+    document_id: Optional[str] = None
+    document_title: Optional[str] = None
+    page_number: Optional[int] = None
+    section: Optional[str] = None
+    document_version: Optional[int] = None
+    retrieval_sources: Optional[List[str]] = None
 
 
 class AIResponse(BaseModel):
@@ -45,4 +54,6 @@ class AIResponse(BaseModel):
     is_external: bool = False
     requires_navigation: bool = False
     requires_clarification: bool = False
+    grounded: bool = True
+    retrieval_count: int = 0
     debug_info: Optional[Dict[str, Any]] = None
