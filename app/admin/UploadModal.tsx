@@ -60,7 +60,7 @@ export default function UploadModal({ visible, onClose, onUploaded }: any) {
   };
 
   return (
-    <GlassModal open={visible} onClose={onClose} title="Upload University Material">
+    <GlassModal isOpen={visible} onClose={onClose} title="Upload University Material">
       <div className="space-y-3">
         <div>
           <input type="file" multiple onChange={(e) => setFiles(e.target.files)} />

@@ -1,5 +1,6 @@
 import time
 import logging
+import re
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 
@@ -394,6 +395,12 @@ class AIOrchestrator:
             is_external=is_external_query,
             intent=intent,
         )
+        # Normalize alternative citation formats produced by models (e.g. "[Source: S1]" or "[Source S1]")
+        # into the canonical short form "[S1]" which the grounding validator and tests expect.
+        try:
+            final_answer = re.sub(r"\[Source[: ]+S(\d+)\]", r"[S\1]", final_answer)
+        except Exception:
+            pass
         logger.info(f"[CHAT] GROUNDING VALIDATED: grounded={final_answer != UNVERIFIED_STANDARD_REFUSAL}")
 
         # 10. Update Conversation Memory & Persist Turn

@@ -18,9 +18,10 @@ const ROOMS = [
 ] as const satisfies readonly [string, string, string, number, number, number, number, number][];
 const rooms = ROOMS.map((item) => room([...item]));
 const corridor = (v: [string, number, number, number, number]): Element => ({ id: v[0], name: 'Corridor', x: v[1], y: v[2], width: v[3], height: v[4], kind: 'corridor' });
-const corridors = [
+const CORRIDORS = [
  ['C1A',58,16,4,8],['C1B',58,27,4,18],['C1C',58,48,4,19],['C1D',58,70,4,18],['C2A',18,16,3,8],['C2B',18,27,3,18],['C2C',18,48,3,19],['C2D',18,70,3,18],['C3A',97,16,3,12],['C3B',97,25,3,24],['C3C',97,46,3,25],['C3D',97,68,3,20],['C4A',21,24,37,3],['C4B',62,24,35,3],['C5A',21,45,37,3],['C5B',62,45,35,3],['C6A',21,67,37,3],['C6B',62,67,35,3],['CJ_NW',18,24,3,3],['CJ_NC',58,24,4,3],['CJ_NE',97,24,3,3],['CJ_MW',18,45,3,3],['CJ_MC',58,45,4,3],['CJ_ME',97,45,3,3],['CJ_SW',18,67,3,3],['CJ_SC',58,67,4,3],['CJ_SE',97,67,3,3],['C7A',18,12,5,4],['C7B',95,12,5,4],['C7C',100,57,8,4],
 ] as const satisfies readonly [string, number, number, number, number][];
+const corridors = CORRIDORS.map((item) => corridor([...item]));
 const fixtures: Element[] = [
  {id:'S1',name:'North West Stair',x:22,y:10,width:6,height:8,kind:'stair'},{id:'S2',name:'North East Stair',x:90,y:10,width:6,height:8,kind:'stair'},{id:'S3',name:'South Stair',x:56,y:88,width:8,height:4,kind:'stair'},{id:'L1',name:'Central Lift',x:54,y:39,width:4,height:6,kind:'lift'},{id:'E1',name:'North West Exit',x:18,y:10,width:4,height:2,kind:'exit'},{id:'E2',name:'North East Exit',x:96,y:10,width:4,height:2,kind:'exit'},{id:'E3',name:'East Side Exit',x:108,y:57,width:2,height:4,kind:'exit'},{id:'E4',name:'South Exit',x:58,y:92,width:4,height:2,kind:'exit'},
 ];
