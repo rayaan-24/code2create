@@ -10,10 +10,19 @@ from app.models.document import Document, DocumentVersion
 from app.models.chunk import KnowledgeChunk
 from app.models.procedure import VerificationStatus
 from app.schemas.document import DocumentIngestionResponse
-from app.ai.retrieval.ingestion import DocumentParser, ParsedPage
+from app.ai.retrieval.ingestion import DocumentParser, ParsedPage, TextCleaner
 from app.ai.retrieval.chunking import SemanticChunker, TextChunk
 from app.ai.retrieval.embeddings import embedding_provider
 from app.services.storage_service import storage_service, DocumentStorageService
+
+# Optional OCR dependencies (pdf2image, pytesseract, Pillow)
+try:
+    from pdf2image import convert_from_bytes
+    import pytesseract
+    from PIL import Image
+    OCR_AVAILABLE = True
+except Exception:
+    OCR_AVAILABLE = False
 
 
 class DocumentIngestionService:
@@ -96,7 +105,27 @@ class DocumentIngestionService:
                 detail={"code": "PARSING_FAILED", "message": f"Failed to parse document content: {e}"},
             )
 
+        # If no text extracted, attempt OCR for PDFs when available
         if not parsed_pages or all(not p.content.strip() for p in parsed_pages):
+            if OCR_AVAILABLE and ext == ".pdf":
+                try:
+                    images = convert_from_bytes(file_bytes)
+                    ocr_pages: List[ParsedPage] = []
+                    for idx, img in enumerate(images, start=1):
+                        try:
+                            text = pytesseract.image_to_string(img)
+                        except Exception:
+                            # PIL image fallback: convert and retry
+                            text = pytesseract.image_to_string(Image.fromarray(img)) if hasattr(img, 'mode') else ""
+                        cleaned = TextCleaner.clean(text)
+                        if cleaned:
+                            ocr_pages.append(ParsedPage(page_number=idx, content=cleaned, section="OCR Text"))
+                    parsed_pages = ocr_pages
+                except Exception:
+                    parsed_pages = []
+
+        if not parsed_pages or all(not p.content.strip() for p in parsed_pages):
+            # Clean up stored file if parsing fails or OCR produced nothing
             self.storage.delete_file(storage_key)
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -215,6 +244,137 @@ class DocumentIngestionService:
             chunks_created=len(knowledge_chunks),
             verification_status=status_str,
             message="Document successfully ingested and indexed into knowledge base",
+            ingestion_status="READY",
+        )
+
+    def reindex_document(
+        self,
+        db: Session,
+        community_id: str,
+        document_id: str,
+        user_id: Optional[str] = None,
+    ) -> DocumentIngestionResponse:
+        """
+        Re-run parsing, chunking, embedding and indexing for an existing stored document.
+        Deletes existing chunks for the document and replaces them with newly generated ones.
+        """
+        doc = db.query(Document).filter(Document.id == document_id, Document.community_id == community_id).first()
+        if not doc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"code": "RESOURCE_NOT_FOUND", "message": "Document not found"})
+
+        # Retrieve original file
+        if not doc.storage_key:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"code": "STORED_FILE_MISSING", "message": "Original document file not found in storage."})
+
+        try:
+            file_bytes = self.storage.get_file(doc.storage_key)
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"code": "STORAGE_READ_FAILED", "message": str(e)})
+
+        # Parse file (with OCR fallback)
+        try:
+            parsed_pages = DocumentParser.parse_file(file_bytes, doc.file_name)
+        except Exception as e:
+            parsed_pages = []
+
+        if (not parsed_pages or all(not p.content.strip() for p in parsed_pages)) and OCR_AVAILABLE and doc.file_type == "pdf":
+            try:
+                images = convert_from_bytes(file_bytes)
+                ocr_pages: List[ParsedPage] = []
+                for idx, img in enumerate(images, start=1):
+                    text = pytesseract.image_to_string(img)
+                    cleaned = TextCleaner.clean(text)
+                    if cleaned:
+                        ocr_pages.append(ParsedPage(page_number=idx, content=cleaned, section="OCR Text"))
+                parsed_pages = ocr_pages
+            except Exception:
+                parsed_pages = []
+
+        if not parsed_pages or all(not p.content.strip() for p in parsed_pages):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"code": "EMPTY_EXTRACTED_CONTENT", "message": "No readable text found for reindexing."})
+
+        # Delete existing chunks for this document
+        try:
+            db.query(KnowledgeChunk).filter(KnowledgeChunk.document_id == doc.id).delete(synchronize_session=False)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"code": "DELETE_FAILED", "message": str(e)})
+
+        # Chunk and embed
+        raw_chunks: List[TextChunk] = self.chunker.chunk_pages(
+            pages=parsed_pages,
+            document_id=doc.id,
+            community_id=community_id,
+            document_title=doc.title,
+            verification_status=doc.verification_status.value if hasattr(doc.verification_status, 'value') else str(doc.verification_status),
+        )
+
+        chunk_texts = [c.content for c in raw_chunks]
+        embedding_vectors = embedding_provider.embed_documents(chunk_texts)
+
+        knowledge_chunks: List[KnowledgeChunk] = []
+        for chunk, embedding_vector in zip(raw_chunks, embedding_vectors):
+            chunk_metadata = {
+                **chunk.metadata,
+                "file_name": doc.file_name,
+                "checksum": doc.content_hash,
+                "storage_key": doc.storage_key,
+                "file_type": doc.file_type,
+                "uploaded_by": user_id or doc.uploaded_by,
+            }
+
+            db_chunk = KnowledgeChunk(
+                id=str(uuid.uuid4()),
+                document_id=doc.id,
+                community_id=community_id,
+                content=chunk.content,
+                embedding=embedding_vector,
+                embedding_json=json.dumps(embedding_vector),
+                page_number=chunk.page_number,
+                section=chunk.section,
+                chunk_index=chunk.chunk_index,
+                token_count=chunk.token_count,
+                verification_status=chunk.metadata.get('verification_status', 'VERIFIED'),
+                metadata_json=json.dumps(chunk_metadata),
+            )
+            knowledge_chunks.append(db_chunk)
+
+        try:
+            db.add_all(knowledge_chunks)
+            doc.chunk_count = len(knowledge_chunks)
+            doc.ingestion_status = "READY"
+            doc.embedding_model = embedding_provider.model_name
+            doc.processing_error = None
+            # bump version
+            doc.version = (doc.version or 1) + 1
+            # add a new version record
+            ver = DocumentVersion(
+                document_id=doc.id,
+                version_number=doc.version,
+                file_name=doc.file_name,
+                storage_key=doc.storage_key,
+                uploaded_by=user_id,
+                change_summary="Reindexed document",
+            )
+            db.add(ver)
+            db.commit()
+            db.refresh(doc)
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"code": "DATABASE_ERROR", "message": f"Failed to store reindexed chunks: {e}"})
+
+        return DocumentIngestionResponse(
+            document_id=doc.id,
+            title=doc.title,
+            file_name=doc.file_name,
+            file_size_bytes=len(file_bytes),
+            storage_key=doc.storage_key,
+            file_checksum=doc.content_hash or "",
+            pages_parsed=len(parsed_pages),
+            chunks_created=len(knowledge_chunks),
+            verification_status=doc.verification_status.value if hasattr(doc.verification_status, 'value') else str(doc.verification_status),
+            message="Document successfully reindexed into knowledge base",
             ingestion_status="READY",
         )
 

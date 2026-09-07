@@ -32,7 +32,11 @@ import {
   Lightbulb,
   ArrowUpRight,
 } from 'lucide-react';
+import KnowledgeList from './KnowledgeList';
+import UploadModal from './UploadModal';
 import { adminApi } from '@/lib/api/admin';
+import { authApi } from '@/lib/api/auth';
+import { useRouter } from 'next/navigation';
 import { locationsApi } from '@/lib/api/locations';
 import { peopleApi } from '@/lib/api/people';
 import { servicesApi } from '@/lib/api/services';
@@ -66,12 +70,14 @@ export default function AdminPage() {
 
   // Modal / Creation state
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
   const [createType, setCreateType] = useState<'location' | 'person' | 'service' | 'procedure' | 'announcement'>('location');
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const adminTabs = [
     'Overview',
+    'Knowledge Base',
     'Confusion Map',
     'Locations',
     'People',
@@ -114,8 +120,16 @@ export default function AdminPage() {
     }
   };
 
+  const router = useRouter();
+
   useEffect(() => {
+    const user = authApi.getCurrentUser();
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
+      router.replace('/');
+      return;
+    }
     loadAdminData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAction = async (id: string, status: 'approved' | 'rejected', type?: string) => {
@@ -262,6 +276,27 @@ export default function AdminPage() {
           </div>
         ) : (
           <>
+            {/* KNOWLEDGE BASE TAB */}
+            {activeTab === 'Knowledge Base' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-black">Knowledge Base</h3>
+                  <div className="flex items-center gap-2">
+                    <GlassButton
+                      size="sm"
+                      variant="primary"
+                      onClick={() => setShowUpload(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Upload Material
+                    </GlassButton>
+                  </div>
+                </div>
+
+                <KnowledgeList />
+              </div>
+            )}
+
+            <UploadModal visible={showUpload} onClose={() => setShowUpload(false)} onUploaded={() => { setShowUpload(false); loadAdminData(); }} />
             {/* OVERVIEW TAB */}
             {activeTab === 'Overview' && (
               <div className="space-y-6">

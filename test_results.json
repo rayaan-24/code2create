@@ -1,0 +1,61 @@
+[
+  {
+    "request": "Hello",
+    "intent": "GENERAL_CHAT",
+    "tools_used": [],
+    "backend_status": 200,
+    "response_time": "3.44s",
+    "final_answer": "Hello, Alex!    How can I assist you today? Whether you need help with coding, campus info, or just a quick question, Im here to",
+    "loading_stopped": true
+  },
+  {
+    "request": "What is Python?",
+    "intent": "GENERAL_KNOWLEDGE",
+    "tools_used": [],
+    "backend_status": 200,
+    "response_time": "4.37s",
+    "final_answer": "**Python** is a highlevel, interpreted programming language known for its readability, simplicity, and versatility.   It was crea",
+    "loading_stopped": true
+  },
+  {
+    "request": "Explain machine learning.",
+    "intent": "GENERAL_KNOWLEDGE",
+    "tools_used": [],
+    "backend_status": 200,
+    "response_time": "4.89s",
+    "final_answer": "## Machine Learning (ML)  A Quick, Yet Deep Dive  Machine Learning is a subfield of artificial intelligence that teaches computer",
+    "loading_stopped": true
+  },
+  {
+    "request": "What is the latest AI news?",
+    "intent": "EXTERNAL_INFORMATION",
+    "tools_used": [
+      "search_web"
+    ],
+    "backend_status": 200,
+    "response_time": "18.49s",
+    "final_answer": "**Latest AI News (as of the most recent search results)**    | # | Topic | Key Takeaways | Source | |---|-------|----------------",
+    "loading_stopped": true
+  },
+  {
+    "request": "Where is the library?",
+    "intent": "LOCATION",
+    "tools_used": [
+      "get_location",
+      "rag"
+    ],
+    "backend_status": 200,
+    "response_time": "3.33s",
+    "final_answer": "The Nexora Central Library is located in the Library & Information Commons, Levels 1 to 4. [S1]",
+    "loading_stopped": true
+  },
+  {
+    "request": "Tell me a joke.",
+    "intent": "GENERAL_KNOWLEDGE",
+    "tools_used": [],
+    "backend_status": 200,
+    "response_time": "2.49s",
+    "final_answer": "Regarding your query on 'tell me a joke.': As an intelligent hybrid assistant, I am equipped to assist with both campus organizati",
+    "loading_stopped": true
+  }
+]

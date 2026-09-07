@@ -11,6 +11,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
+    poppler-utils \
+    tesseract-ocr \
+    libjpeg62-turbo-dev \
+    zlib1g-dev \
+    libtiff5-dev \
+    libopenjp2-7-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python requirements

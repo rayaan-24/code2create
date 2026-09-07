@@ -631,6 +631,38 @@ def admin_delete_document(
     return ResponseEnvelope(data={"message": "Document removed successfully"})
 
 
+@router.post("/documents/{document_id}/reindex", response_model=ResponseEnvelope[DocumentIngestionResponse])
+def admin_reindex_document(
+    document_id: str,
+    req: Request,
+    current_admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Re-index an existing stored document: re-parse, re-chunk, re-embed, and replace chunks.
+    """
+    result = document_ingestion_service.reindex_document(
+        db=db, community_id=current_admin.community_id, document_id=document_id, user_id=current_admin.id
+    )
+
+    client_ip = req.client.host if (req and req.client) else "127.0.0.1"
+    log_audit_event(
+        db=db,
+        community_id=current_admin.community_id,
+        user_id=current_admin.id,
+        action=AuditAction.UPDATE,
+        entity_type="document_reindex",
+        entity_id=document_id,
+        metadata_json={
+            "chunks_created": result.chunks_created,
+            "pages_parsed": result.pages_parsed,
+        },
+        ip_address=client_ip,
+    )
+
+    return ResponseEnvelope(data=result)
+
+
 # ==================== ANNOUNCEMENTS CRUD ====================
 
 

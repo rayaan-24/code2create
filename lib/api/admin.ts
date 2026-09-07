@@ -1,4 +1,4 @@
-import { apiRequest, ApiResponse, createSuccessResponse } from './client';
+import { apiRequest, ApiResponse, createSuccessResponse, API_BASE_URL } from './client';
 import { AdminMetric, VerificationItem } from '../types';
 import { mockAdminMetric, mockVerificationQueue } from '../mock-data';
 
@@ -200,5 +200,41 @@ export const adminApi = {
 
   async getConfusionMap(): Promise<ApiResponse<any>> {
     return apiRequest('/api/v1/admin/analytics/confusion-map');
+  },
+
+  // Documents / Knowledge Base
+  async listDocuments(): Promise<ApiResponse<any[]>> {
+    return apiRequest('/api/v1/documents');
+  },
+
+  async getDocument(id: string): Promise<ApiResponse<any>> {
+    return apiRequest(`/api/v1/documents/${id}`);
+  },
+
+  async uploadDocument(file: File, metadata: Record<string, any> = {}): Promise<ApiResponse<any>> {
+    const form = new FormData();
+    form.append('file', file);
+    if (metadata.title) form.append('title', metadata.title);
+    if (metadata.description) form.append('description', metadata.description);
+    // Fetch directly using browser fetch to avoid JSON content-type in apiRequest
+    const token = localStorage.getItem('nexora_auth_token');
+    const res = await fetch(`${API_BASE_URL}/api/v1/admin/documents/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { data: null, error: body?.detail || 'Upload failed', status: res.status };
+    }
+    return { data: body?.data ?? body, error: null, status: res.status };
+  },
+
+  async reindexDocument(id: string): Promise<ApiResponse<any>> {
+    return apiRequest(`/api/v1/admin/documents/${id}/reindex`, { method: 'POST' });
+  },
+
+  async deleteDocument(id: string): Promise<ApiResponse<any>> {
+    return apiRequest(`/api/v1/admin/documents/${id}`, { method: 'DELETE' });
   },
 };

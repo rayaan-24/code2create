@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { GlassButton } from '../ui/GlassButton';
 import { GlassBadge } from '../ui/GlassBadge';
+import { authApi } from '@/lib/api/auth';
 import { mockCurrentUser } from '@/lib/mock-data';
 
 export interface AppSidebarProps {
@@ -37,7 +38,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ onCloseMobile }) => {
     { label: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  const isAdmin = mockCurrentUser.role === 'admin' || true;
+  const currentUser = authApi.getCurrentUser() || mockCurrentUser;
+  const isAdmin = currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'SUPER_ADMIN');
 
   return (
     <aside className="w-64 h-full flex flex-col justify-between p-4 bg-white/75 backdrop-blur-2xl border-r border-[rgba(180,80,110,0.12)] shadow-[4px_0_24px_rgba(244,114,138,0.03)] select-none">
