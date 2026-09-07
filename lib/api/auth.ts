@@ -80,6 +80,19 @@ export const authApi = {
     return res;
   },
 
+  async getGuestToken(): Promise<ApiResponse<AuthResponseData>> {
+    const res = await apiRequest<AuthResponseData>('/api/v1/auth/guest-token', {
+      method: 'POST',
+    });
+
+    if (res.data && res.data.tokens) {
+      setAuthToken(res.data.tokens.access_token);
+      setStoredUser(res.data.user);
+    }
+
+    return res;
+  },
+
   async logout(): Promise<void> {
     try {
       await apiRequest('/api/v1/auth/logout', { method: 'POST' });

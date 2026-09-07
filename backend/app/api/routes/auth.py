@@ -16,6 +16,7 @@ from app.services.auth_service import (
     register_user,
     authenticate_user,
     refresh_access_token,
+    issue_guest_token,
 )
 from app.services.audit_service import log_audit_event
 
@@ -46,6 +47,19 @@ def login(
 ):
     client_ip = req.client.host if req.client else "127.0.0.1"
     user, tokens = authenticate_user(db, request, ip_address=client_ip)
+    return ResponseEnvelope(
+        data={
+            "user": UserRead.model_validate(user).model_dump(),
+            "tokens": tokens.model_dump(),
+        }
+    )
+
+
+@router.post("/guest-token", response_model=ResponseEnvelope[dict])
+def guest_token(
+    db: Session = Depends(get_db),
+):
+    user, tokens = issue_guest_token(db)
     return ResponseEnvelope(
         data={
             "user": UserRead.model_validate(user).model_dump(),

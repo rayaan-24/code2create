@@ -5,12 +5,10 @@
 
 function getBaseUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  let raw = 'http://localhost:8001';
-  if (envUrl && envUrl.trim() && !envUrl.includes('localhost:8000')) {
-    raw = envUrl.trim();
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim().replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
   }
-  // Strip trailing slashes and redundant /api/v1 suffixes
-  return raw.replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
+  return 'http://localhost:8000';
 }
 
 export const API_BASE_URL = getBaseUrl();
@@ -124,20 +122,24 @@ export async function apiRequest<T>(
     if (!res.ok) {
       let errMsg =
         body?.error?.message ||
-        body?.detail ||
-        body?.message ||
-        `Request failed with status ${res.status}`;
+        (typeof body?.detail === 'string' ? body.detail : body?.detail?.message) ||
+        (typeof body?.error === 'string' ? body.error : null) ||
+        body?.message;
 
-      if (res.status === 401) {
-        errMsg = 'Authentication required. Please log in or continue in guest mode.';
-      } else if (res.status === 404) {
-        errMsg = `Requested resource not found at ${endpoint}.`;
-      } else if (res.status === 408) {
-        errMsg = 'The chat request timed out (60s limit). Please check backend connection or try a simpler query.';
-      } else if (res.status === 503) {
-        errMsg = 'Nexora AI service is currently degraded or LLM provider is unconfigured/unreachable.';
-      } else if (res.status >= 500) {
-        errMsg = 'Nexora AI backend server error. Please try again in a few moments.';
+      if (!errMsg) {
+        if (res.status === 401) {
+          errMsg = 'Invalid credentials or authentication required. Please check your email and password.';
+        } else if (res.status === 404) {
+          errMsg = `Requested resource not found at ${endpoint}.`;
+        } else if (res.status === 408) {
+          errMsg = 'The request timed out (60s limit). Please check backend connection or try again.';
+        } else if (res.status === 503) {
+          errMsg = 'Nexora AI service is currently degraded or unreachable.';
+        } else if (res.status >= 500) {
+          errMsg = 'Nexora AI backend server error. Please try again in a few moments.';
+        } else {
+          errMsg = `Request failed with status ${res.status}`;
+        }
       }
 
       console.warn(`[Nexora API Error] ${res.status} ${url}: ${errMsg}`);
